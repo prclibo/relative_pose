@@ -1,3 +1,4 @@
+#include <chrono>
 #include <opencv2/opencv.hpp>
 #include "relative_pose/relative_pose.hpp"
 
@@ -20,9 +21,10 @@ int main()
     double focal = 300; 
     double bound_2d = 175; 
 
-    cv::RNG rng; 
+    cv::RNG rng;
     std::unordered_map<int, std::vector<cv::Mat>> t_angles;
     
+    std::chrono::duration<double> total_time(0);
     for (double stdd = 0.1; stdd <= 1.0; stdd += 0.1)
     {
         double sigma = stdd; 
@@ -65,14 +67,16 @@ int main()
             
             std::vector<cv::Point2f> vec = {{1, 2}, {2, 3}};
 
-            cv::Mat u;
-            cv::normalize(rvec, u);
-            u *= std::sin(angle / 2);
-            std::cerr << "u = " << u << std::endl;
+            // std::cerr << "rvec0 = " << rvec << " " << tvec / cv::norm(tvec) << std::endl;
 
             cv::Mat rvecs, tvecs, mask;
-            estimateRelativePose_PC4PRA(angle, image_points1, image_points2, camera_matrix, 0, 0.99, 1,
-                    rvecs, tvecs, mask);
+            auto start = std::chrono::system_clock::now();
+            estimateRelativePose_PC4PRA(angle,
+                    image_points1.rowRange(0, 4), image_points2.rowRange(0, 4),
+                    camera_matrix, cv::RANSAC, 0.99, 1, rvecs, tvecs, mask);
+            auto end = std::chrono::system_clock::now();
+            total_time += (end - start);
+            // std::cerr << rvecs << tvecs << std::endl;
 
 //     std::cerr << "a4" << std::endl;
 //             cv::Mat x1s = K * Xs.t(); 
@@ -117,10 +121,11 @@ int main()
 //             estimateRelativePose_PC4PRA(angle, x1s_noise, x2s_noise, K, 0, 0.99, 1,
 //                     rvecs, tvecs, mask);
 
-            exit(0);
 
         }
 
     }
+
+    std::cerr << total_time.count() / 10000 << std::endl;
 
 }

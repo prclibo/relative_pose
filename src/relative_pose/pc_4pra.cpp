@@ -1122,6 +1122,71 @@ class PC4PRAEstimatorCallback CV_FINAL : public PointSetRegistrator::Callback
 {
 protected:
     double angle_;
+
+    void complementSolutions(auxArrays const& aux,
+            const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
+            const double z[NVIEWS][SAMPLE], double w, double s,
+            Vec3d& rvec, Vec3d& tvec) const
+    {
+        Mat1d D1(3, 4);
+        const int dd[4] = {4, 5, 5, 6};
+        for (int j = 0; j < 4; ++j)
+        {
+            const int d1 = dd[j];
+            for (int i = 0; i < 3; ++i)
+            {
+                D1[i][j] = aux.D[i][j][d1];
+                for (int d = d1 - 1; d >= 0; --d)
+                    D1[i][j] = D1[i][j] * w + aux.D[i][j][d];
+            }
+        }
+
+        double ss = s * s;
+        Vec4d q;
+        SVD::solveZ(D1, q);
+        double u = q[1] / q[3], v = q[2] / q[3];
+        double fac = std::sqrt((1.0 - ss) / (u*u + v*v + w*w));
+        u *= fac; v *= fac; w *= fac;
+
+	// compute rotation matrix
+        // FIXME(li): Evgeniy's 4p2v code seems using transposed
+        // quaternion<->rotation matrix representation instead of the
+        // wikipedia convention.
+        // https://math.stackexchange.com/questions/383754/are-there-different-conventions-for-representing-rotations-as-quaternions.
+	const double u2 = 2*u, v2 = 2*v, w2 = 2*w;
+	const double uu2 = u*u2, vv2 = v*v2, ww2 = w*w2, ss2 = 2*ss;
+	const double uv2 = u2*v, vw2 = v2*w, uw2 = u2*w, us2 = u2*s, vs2 = v2*s, ws2 = w2*s;
+
+        double R[9];
+	R[0] = uu2 + ss2 - 1;   R[1] = ws2 + uv2;       R[2] = uw2 - vs2;
+	R[3] = uv2 - ws2;       R[4] = vv2 + ss2 - 1;   R[5] = us2 + vw2;
+	R[6] = vs2 + uw2;       R[7] = vw2 - us2;       R[8] = ww2 + ss2 - 1;
+	const double t1 = R[6]*x[0][0] + R[7]*y[0][0] + R[8]*z[0][0];
+	const double t2 = R[3]*x[0][0] + R[4]*y[0][0] + R[5]*z[0][0];
+	const double t3 = R[0]*x[0][0] + R[1]*y[0][0] + R[2]*z[0][0];
+	const double t4 = R[6]*x[0][1] + R[7]*y[0][1] + R[8]*z[0][1];
+	const double t5 = R[3]*x[0][1] + R[4]*y[0][1] + R[5]*z[0][1];
+	const double t6 = R[0]*x[0][1] + R[1]*y[0][1] + R[2]*z[0][1];
+        Mat1d S(2, 3);
+        Vec3d t;
+	S[0][0] = t2*z[1][0] - t1*y[1][0];
+	S[0][1] = t1*x[1][0] - t3*z[1][0];
+	S[0][2] = t3*y[1][0] - t2*x[1][0];
+	S[1][0] = t5*z[1][1] - t4*y[1][1];
+	S[1][1] = t4*x[1][1] - t6*z[1][1];
+	S[1][2] = t6*y[1][1] - t5*x[1][1];
+
+        rvec = {u, v, w};
+        rvec *= angle_ / std::sqrt(1.0 - ss);
+        // FIXME(li): Evgeniy's 4p2v code seems using transposed
+        // quaternion<->rotation matrix representation instead of the
+        // wikipedia convention.
+        // https://math.stackexchange.com/questions/383754/are-there-different-conventions-for-representing-rotations-as-quaternions.
+        rvec *= -1;
+
+        SVD::solveZ(S, tvec);
+    }
+
 public:
     PC4PRAEstimatorCallback(double angle)
         : angle_(angle) {}
@@ -1129,7 +1194,6 @@ public:
     int runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const CV_OVERRIDE
     {
         Mat_<Point2d> q1 = _m1.getMat(), q2 = _m2.getMat();
-        std::cerr << "runKernel " << q1.size() << q2.size() << std::endl;
         CV_Assert(q1.cols == 1 && q2.cols == 1);
 
         double x[NVIEWS][SAMPLE], y[NVIEWS][SAMPLE], z[NVIEWS][SAMPLE];
@@ -1149,17 +1213,26 @@ public:
         aux.matrix16x36(x, y, z, ss, s);
         aux.poly20();
 
-        // Camera ce[MAXSOLS];
-        // int ns = solver4p2v(x, y, z, ss, ce);
-
-        Mat coeffs(1, 21, CV_64F, aux.p), roots;
+        Mat1d coeffs(1, 21, aux.p);
+        // Cheating modules/core/src/matrix_wrap.cpp:1295
+        Mat2d roots(0, 0);
         cv::solvePoly(coeffs, roots);
+        int num_roots = roots.total();
 
-        std::cerr << Mat(1, 21, CV_64F, aux.p) << std::endl;
-        std::cerr << roots << std::endl;
-        std::cerr << s << std::endl;
+        Mat1d model;
+        for (auto const& root: roots)
+        {
+            if (std::abs(root[1]) > 1e-10) continue;
 
-        return 0;
+            Vec3d rvec, tvec;
+            complementSolutions(aux, x, y, z, root[0], s, rvec, tvec);
+
+            model.push_back(rvec);
+            model.push_back(tvec);
+        }
+        _model.assign(model);
+
+        return model.rows / 2;
     }
 
     void computeError( InputArray _m1, InputArray _m2, InputArray _model, OutputArray _err ) const CV_OVERRIDE
@@ -1191,7 +1264,7 @@ public:
     }
 };
 
-Mat estimateRelativePose_PC4PRA(double angle,
+void estimateRelativePose_PC4PRA(double angle,
         InputArray _points1, InputArray _points2,
         InputArray _cameraMatrix, int method, double prob, double threshold,
         OutputArray _rvecs, OutputArray _tvecs, OutputArray _mask)
@@ -1231,16 +1304,23 @@ Mat estimateRelativePose_PC4PRA(double angle,
 
     threshold /= (fx+fy)/2;
 
-    PC4PRAEstimatorCallback callback(angle);
     Mat models;
-    callback.runKernel(points1, points2, models);
+    if( method == RANSAC )
+        createRANSACPointSetRegistrator(
+                makePtr<PC4PRAEstimatorCallback>(angle), 4, threshold, prob)->run(
+                points1, points2, models, _mask);
+    else
+        createLMeDSPointSetRegistrator(
+                makePtr<PC4PRAEstimatorCallback>(angle), 4, prob)->run(
+                points1, points2, models, _mask);
 
-    // Mat E;
-    // if( method == RANSAC )
-    //     createRANSACPointSetRegistrator(makePtr<EMEstimatorCallback>(), 5, threshold, prob)->run(points1, points2, E, _mask);
-    // else
-    //     createLMeDSPointSetRegistrator(makePtr<EMEstimatorCallback>(), 5, prob)->run(points1, points2, E, _mask);
-
-    return Mat();
+    Mat1d rvecs, tvecs;
+    for (int i = 0; i < models.rows; i += 2)
+    {
+        rvecs.push_back(models.row(i) * 1.0);
+        tvecs.push_back(models.row(i + 1) * 1.0);
+    }
+    _rvecs.assign(rvecs);
+    _tvecs.assign(tvecs);
 }
 }
