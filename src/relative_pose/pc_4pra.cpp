@@ -1029,7 +1029,7 @@ void auxArrays::poly20 ()
 // the output is the number of real solutions found
 int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
         const double z[NVIEWS][SAMPLE], const double &ss,
-        double q_buffer[MAXSOLS * 4], double t_buffer[MAXSOLS * 3])
+        double r_buffer[MAXSOLS * 3], double t_buffer[MAXSOLS * 3])
 {
     auxArrays S;
     const double s = sqrt(ss);
@@ -1100,14 +1100,14 @@ int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
         // normalize translation vectors so that ||t2|| = 1
         const double n = sqrt(pow(t[0][0], 2) + pow(t[0][1], 2) + pow(t[0][2], 2));
 
-                q_buffer[k * 4 + 0] = s;
-                q_buffer[k * 4 + 1] = u;
-                q_buffer[k * 4 + 2] = v;
-                q_buffer[k * 4 + 3] = w;
+        double angle = std::acos(s);
+        r_buffer[k * 3 + 0] = u / b * s;
+        r_buffer[k * 3 + 1] = v / b * s;
+        r_buffer[k * 3 + 2] = w / b * s;
 
-                t_buffer[k * 3 + 0] = t[0][0] / n;
-                t_buffer[k * 3 + 1] = t[0][1] / n;
-                t_buffer[k * 3 + 2] = t[0][2] / n;
+        t_buffer[k * 3 + 0] = t[0][0] / n;
+        t_buffer[k * 3 + 1] = t[0][1] / n;
+        t_buffer[k * 3 + 2] = t[0][2] / n;
 
 
     } // end of cycle over all solutions
@@ -1207,26 +1207,13 @@ public:
             z[1][si] = 1;
         }
 
-        auxArrays aux;
-        const double s = std::cos(angle_ / 2);
-        const double ss = s * s;
-        aux.matrix16x36(x, y, z, ss, s);
-        aux.poly20();
-
-        Mat1d coeffs(1, 21, aux.p);
-        // Cheating modules/core/src/matrix_wrap.cpp:1295
-        Mat2d roots(0, 0);
-        cv::solvePoly(coeffs, roots);
-        int num_roots = roots.total();
+        double r_buffer[MAXSOLS * 3], t_buffer[MAXSOLS * 3];
+        int ns = solver4p2v(x, y, z, ss, r_buffer, t_buffer);
 
         Mat1d model;
-        for (auto const& root: roots)
+        for (int i = 0; i < ns; ++i)
         {
-            if (std::abs(root[1]) > 1e-10) continue;
-
-            Vec3d rvec, tvec;
-            complementSolutions(aux, x, y, z, root[0], s, rvec, tvec);
-
+            Vec3d rvec(r_buffer + i * 3), tvec(t_buffer + i * 3);
             model.push_back(rvec);
             model.push_back(tvec);
         }
