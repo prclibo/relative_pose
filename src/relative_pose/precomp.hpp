@@ -134,6 +134,43 @@ static inline bool haveCollinearPoints( const Mat& m, int count )
     }
     return false;
 }
+template<typename T>
+Mat
+skewMat( const Mat_<T> &x )
+{
+  Mat_<T> skew(3,3);
+  skew <<   0 , -x(2),  x(1),
+          x(2),    0 , -x(0),
+         -x(1),  x(0),    0;
+
+  return std::move(skew);
+}
+
+Mat
+skew( InputArray _x )
+{
+  const Mat x = _x.getMat();
+  const int depth = x.depth();
+  CV_Assert( x.size() == Size(3,1) || x.size() == Size(1,3) );
+  CV_Assert( depth == CV_32F || depth == CV_64F );
+
+  Mat skewMatrix;
+  if( depth == CV_32F )
+  {
+    skewMatrix = skewMat<float>(x);
+  }
+  else if( depth == CV_64F )
+  {
+    skewMatrix = skewMat<double>(x);
+  }
+  else
+  {
+    //CV_Error(CV_StsBadArg, "The DataType must be CV_32F or CV_64F");
+  }
+
+  return skewMatrix;
+}
+
 
 } // namespace cv
 

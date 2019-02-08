@@ -1029,7 +1029,7 @@ void auxArrays::poly20 ()
 // the output is the number of real solutions found
 int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
         const double z[NVIEWS][SAMPLE], const double &ss,
-        double r_buffer[MAXSOLS * 3], double t_buffer[MAXSOLS * 3])
+        double rbuf[MAXSOLS * 3], double tbuf[MAXSOLS * 3])
 {
     auxArrays S;
     const double s = sqrt(ss);
@@ -1100,14 +1100,14 @@ int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
         // normalize translation vectors so that ||t2|| = 1
         const double n = sqrt(pow(t[0][0], 2) + pow(t[0][1], 2) + pow(t[0][2], 2));
 
-        double angle = std::acos(s);
-        r_buffer[k * 3 + 0] = u / b * s;
-        r_buffer[k * 3 + 1] = v / b * s;
-        r_buffer[k * 3 + 2] = w / b * s;
+        double angle = std::acos(s) * 2;
+        rbuf[k * 3 + 0] = u / b * angle;
+        rbuf[k * 3 + 1] = v / b * angle;
+        rbuf[k * 3 + 2] = w / b * angle;
 
-        t_buffer[k * 3 + 0] = t[0][0] / n;
-        t_buffer[k * 3 + 1] = t[0][1] / n;
-        t_buffer[k * 3 + 2] = t[0][2] / n;
+        tbuf[k * 3 + 0] = t[0][0] / n;
+        tbuf[k * 3 + 1] = t[0][1] / n;
+        tbuf[k * 3 + 2] = t[0][2] / n;
 
 
     } // end of cycle over all solutions
@@ -1118,10 +1118,11 @@ int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
 
 namespace cv
 {
+
 class PC4PRAEstimatorCallback CV_FINAL : public PointSetRegistrator::Callback
 {
 protected:
-    double angle_;
+    float angle_, dist_thresh_;
 
     void complementSolutions(auxArrays const& aux,
             const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
@@ -1188,8 +1189,9 @@ protected:
     }
 
 public:
-    PC4PRAEstimatorCallback(double angle)
-        : angle_(angle) {}
+    PC4PRAEstimatorCallback(float angle, float dist_thresh = 100)
+        : angle_(angle)
+        , dist_thresh_(dist_thresh) {}
 
     int runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const CV_OVERRIDE
     {
@@ -1207,47 +1209,130 @@ public:
             z[1][si] = 1;
         }
 
-        double r_buffer[MAXSOLS * 3], t_buffer[MAXSOLS * 3];
-        int ns = solver4p2v(x, y, z, ss, r_buffer, t_buffer);
+        const double s = std::cos(angle_ / 2);
+        const double ss = s * s;
+        double rbuf[MAXSOLS * 3], tbuf[MAXSOLS * 3];
+        int ns = solver4p2v(x, y, z, ss, rbuf, tbuf);
 
         Mat1d model;
         for (int i = 0; i < ns; ++i)
         {
-            Vec3d rvec(r_buffer + i * 3), tvec(t_buffer + i * 3);
+            Vec3d rvec(rbuf + i * 3), tvec(tbuf + i * 3);
+            // FIXME(li): Evgeniy's 4p2v code seems using transposed
+            // quaternion<->rotation matrix representation instead of the
+            // wikipedia convention.
+            // https://math.stackexchange.com/questions/383754/are-there-different-conventions-for-representing-rotations-as-quaternions.
+            rvec *= -1;
+
             model.push_back(rvec);
             model.push_back(tvec);
+            model.push_back(rvec);
+            model.push_back(-tvec);
         }
+        model = model.reshape(1);
         _model.assign(model);
 
         return model.rows / 2;
     }
 
-    void computeError( InputArray _m1, InputArray _m2, InputArray _model, OutputArray _err ) const CV_OVERRIDE
+    int _runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const // CV_OVERRIDE
     {
-        Mat X1 = _m1.getMat(), X2 = _m2.getMat(), model = _model.getMat();
-        const Point2d* x1ptr = X1.ptr<Point2d>();
-        const Point2d* x2ptr = X2.ptr<Point2d>();
-        int n = X1.checkVector(2);
-        Matx33d E(model.ptr<double>());
+        Mat_<Point2d> q1 = _m1.getMat(), q2 = _m2.getMat();
+        CV_Assert(q1.cols == 1 && q2.cols == 1);
 
-        _err.create(n, 1, CV_32F);
-        Mat err = _err.getMat();
-
-        for (int i = 0; i < n; i++)
+        double x[NVIEWS][SAMPLE], y[NVIEWS][SAMPLE], z[NVIEWS][SAMPLE];
+        for (int si = 0; si < SAMPLE; ++si)
         {
-            Vec3d x1(x1ptr[i].x, x1ptr[i].y, 1.);
-            Vec3d x2(x2ptr[i].x, x2ptr[i].y, 1.);
-            Vec3d Ex1 = E * x1;
-            Vec3d Etx2 = E.t() * x2;
-            double x2tEx1 = x2.dot(Ex1);
-
-            double a = Ex1[0] * Ex1[0];
-            double b = Ex1[1] * Ex1[1];
-            double c = Etx2[0] * Etx2[0];
-            double d = Etx2[1] * Etx2[1];
-
-            err.at<float>(i) = (float)(x2tEx1 * x2tEx1 / (a + b + c + d));
+            x[0][si] = q1(si, 0).x;
+            y[0][si] = q1(si, 0).y;
+            z[0][si] = 1;
+            x[1][si] = q2(si, 0).x;
+            y[1][si] = q2(si, 0).y;
+            z[1][si] = 1;
         }
+
+        auxArrays aux;
+        const double s = std::cos(angle_ / 2);
+        const double ss = s * s;
+        aux.matrix16x36(x, y, z, ss, s);
+        aux.poly20();
+
+
+        auto start = std::chrono::system_clock::now();
+        Mat1d coeffs(1, 21, aux.p);
+        // Cheating modules/core/src/matrix_wrap.cpp:1295
+        Mat2d roots(0, 0);
+        cv::solvePoly(coeffs, roots);
+        int num_roots = roots.total();
+        auto end = std::chrono::system_clock::now();
+
+        Mat1d model;
+        for (auto const& root: roots)
+        {
+            if (std::abs(root[1]) > 1e-10) continue;
+
+            Vec3d rvec, tvec;
+            complementSolutions(aux, x, y, z, root[0], s, rvec, tvec);
+
+            model.push_back(rvec);
+            model.push_back(tvec);
+            model.push_back(rvec);
+            model.push_back(-tvec);
+        }
+        _model.assign(model);
+        model = model.reshape(1);
+
+        return model.rows / 2;
+    }
+
+    void computeError( InputArray _m1, InputArray _m2, InputArray _model,
+            OutputArray _err ) const CV_OVERRIDE
+    {
+        Mat x1, x2;
+        _m1.getMat().convertTo(x1, CV_32F);
+        _m2.getMat().convertTo(x2, CV_32F);
+        Mat x1h, x2h;
+        cv::convertPointsToHomogeneous(x1, x1h);
+        cv::convertPointsToHomogeneous(x2, x2h);
+        x1h = x1h.reshape(1);
+        x2h = x2h.reshape(1);
+
+        Mat model = _model.getMat(), rmat, rvec, tvec;
+        model.row(0).convertTo(rvec, CV_32F);
+        model.row(1).convertTo(tvec, CV_32F);
+        Rodrigues(rvec, rmat);
+        tvec = tvec.t();
+
+        Mat1f E = skew(tvec) * rmat;
+        Mat1f x2tE = x2h * E,
+              x1tE = x1h * E;
+        Mat1f x1tE_sqr = x1tE.mul(x1tE),
+              x2tE_sqr = x2tE.mul(x2tE);
+        Mat1f x2tEx1 = x2tE.mul(x1h);
+        reduce(x2tEx1, x2tEx1, 1, REDUCE_SUM);
+        Mat1f x2tEx1_sqr = x2tEx1.mul(x2tEx1);
+
+        Mat1f errs;
+        divide(x2tEx1_sqr, x1tE_sqr.col(0) + x1tE_sqr.col(1) +
+                x2tE_sqr.col(0) + x2tE_sqr.col(1), errs);
+        errs.convertTo(errs, CV_32F);
+        errs = errs.t();
+
+        // Cheirality check. c.f. cv::recovePose().
+        Mat1f P1 = Mat1d::eye(3, 4), P2(3, 4);
+        rmat.copyTo(P2.colRange(0, 3));
+        tvec.copyTo(P2.col(3));
+        Mat1f tlated(0, 0);
+        triangulatePoints(P1, P2, x1, x2, tlated);
+
+        tlated = tlated / repeat(tlated.row(3), 4, 1);
+        auto mask1 = (tlated.row(2) > 0) & (tlated.row(2) < dist_thresh_);
+        tlated = P2 * tlated;
+        auto mask2 = (tlated.row(2) > 0) & (tlated.row(2) < dist_thresh_);
+
+        errs.setTo(std::numeric_limits<float>::quiet_NaN(), mask1 | mask2);
+
+        _err.assign(errs);
     }
 };
 

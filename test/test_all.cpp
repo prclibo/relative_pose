@@ -68,14 +68,19 @@ int main()
             std::vector<cv::Point2f> vec = {{1, 2}, {2, 3}};
 
             // std::cerr << "rvec0 = " << rvec << " " << tvec / cv::norm(tvec) << std::endl;
+            // std::cerr << "q0 = " << rvec.t() / angle * std::sin(angle / 2) << std::endl;
 
             cv::Mat rvecs, tvecs, mask;
             auto start = std::chrono::system_clock::now();
             estimateRelativePose_PC4PRA(angle,
                     image_points1.rowRange(0, 4), image_points2.rowRange(0, 4),
                     camera_matrix, cv::RANSAC, 0.99, 1, rvecs, tvecs, mask);
+            std::cerr << rvecs << std::endl;
+            std::cerr << rvec << std::endl;
             auto end = std::chrono::system_clock::now();
             total_time += (end - start);
+
+            exit(0);
             // std::cerr << rvecs << tvecs << std::endl;
 
 //     std::cerr << "a4" << std::endl;

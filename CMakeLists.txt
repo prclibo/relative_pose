@@ -1,10 +1,12 @@
 cmake_minimum_required (VERSION 2.8.11)
 project(relative_pose)
 
-set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 11)
+add_compile_options(-O2)
 
 find_package(OpenCV REQUIRED)
 
 include_directories(include)
 add_subdirectory(src/relative_pose)
+add_subdirectory(third_party)
 add_subdirectory(test)
