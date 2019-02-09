@@ -8,7 +8,7 @@ struct DataSampler
     cv::Vec3d baseline;
     cv::RNG rng;
     DataSampler();
-    void sample(int num_points, double noise, double outlier_rate,
+    void sample(int num_points, double noise, int num_outliers,
             cv::OutputArray _rvec, cv::OutputArray _tvec,
             cv::OutputArray _image_points1, cv::OutputArray _image_points2);
 
@@ -17,6 +17,7 @@ struct DataSampler
 
 DataSampler::DataSampler()
 {
+    rng = cv::RNG(211);
     angle_bound = CV_PI / 18; 
     nearest_dist = 10; 
     baseline_turb = 0.05; 
@@ -34,7 +35,7 @@ cv::Mat1d DataSampler::cameraMatrix() const
     return camera_matrix;
 }
 
-void DataSampler::sample(int num_points, double noise, double outlier_rate,
+void DataSampler::sample(int num_points, double noise, int num_outliers,
         cv::OutputArray _rvec, cv::OutputArray _tvec,
         cv::OutputArray _image_points1, cv::OutputArray _image_points2)
 {
@@ -44,12 +45,14 @@ void DataSampler::sample(int num_points, double noise, double outlier_rate,
     rng.fill(rvec, RNG::UNIFORM, -angle_bound, angle_bound); 
     rng.fill(cvec, RNG::UNIFORM, -baseline_turb, baseline_turb); 
     cvec += baseline;
+    double angle = norm(rvec);
 
     Matx33d rmat; 
     Rodrigues(rvec, rmat); 
-    tvec = -rmat * cvec; 
+    tvec = -rmat * cvec;
+    if (angle > 1e-5) tvec -= (rvec / angle) * (tvec.dot(rvec) / angle);
+    std::cerr << "tvec * rvec" << tvec.dot(rvec) << std::endl;
 
-    double angle = norm(rvec);
     auto camera_matrix = cameraMatrix();
 
     Mat1d object_points(num_points, 3);
@@ -58,16 +61,23 @@ void DataSampler::sample(int num_points, double noise, double outlier_rate,
     object_points = camera_matrix.inv() * object_points.t();
     object_points = object_points.t();
 
-    Mat1d ds_(num_points, 1, CV_64F), ds;
-    rng.fill(ds_, RNG::UNIFORM, nearest_dist, nearest_dist + depth); 
-    repeat(ds_, 1, 3, ds);
-    multiply(object_points, ds, object_points);
+    Mat1d ds(num_points, 1);
+    rng.fill(ds, RNG::UNIFORM, nearest_dist, nearest_dist + depth); 
+    multiply(object_points, repeat(ds, 1, 3), object_points);
 
     Mat image_points1, image_points2;
     projectPoints(object_points, Matx13d::zeros(), Matx13d::zeros(),
             camera_matrix, noArray(), image_points1);
     projectPoints(object_points, rvec, tvec,
             camera_matrix, noArray(), image_points2);
+
+    if (num_outliers > 0)
+    {
+    rng.fill(image_points1.rowRange(0, num_outliers), RNG::UNIFORM,
+            -half_size, half_size);
+    rng.fill(image_points2.rowRange(0, num_outliers), RNG::UNIFORM,
+            -half_size, half_size);
+    }
 
     _image_points1.create(image_points1.size(), image_points1.type());
     _image_points2.create(image_points2.size(), image_points2.type());
@@ -83,6 +93,7 @@ void DataSampler::sample(int num_points, double noise, double outlier_rate,
     _tvec.assign(Mat(tvec));
 }
 
+/*
 int main()
 {
     using namespace cv;
@@ -98,23 +109,16 @@ int main()
 
     Vec3d rvec, tvec;
     std::vector<Point2d> image_points1, image_points2;
-    sampler.sample(10, 0, 0, rvec, tvec, image_points1, image_points2);
-
-    image_points1.emplace_back(100, 200);
-    image_points1.emplace_back(400, 100);
-    image_points2.emplace_back(100, 200);
-    image_points2.emplace_back(200, 400);
+    sampler.sample(20, 0, 12, rvec, tvec, image_points1, image_points2);
 
     auto camera_matrix = sampler.cameraMatrix();
-
     std::cerr << "rvecs = " << rvec << std::endl;
-    cv::Mat rvecs, tvecs;
-    Mat mask;
+    Mat rvecs, tvecs, mask;
     estimateRelativePose_PC4PRA(cv::norm(rvec),
             image_points1, image_points2,
-            camera_matrix, cv::RANSAC, 0.99, 1, rvecs, tvecs, mask);
+            camera_matrix, cv::RANSAC, 0.99, 1e-2, rvecs, tvecs, mask);
     std::cerr << rvecs << " " << tvecs << std::endl;
     std::cerr << mask.t() << std::endl;
 
 }
-
+*/*/*/*/*/*/*/*/
