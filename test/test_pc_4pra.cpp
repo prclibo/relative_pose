@@ -166,6 +166,7 @@ TEST(PC_5P_LiH, Simple)
     sampler.depth = 10; 
     sampler.focal = 300; 
     sampler.half_size = 175; 
+    sampler.zero_screw_transl = true;
 
     Vec3d rvec, tvec;
     std::vector<Point2d> image_points1, image_points2;
@@ -174,7 +175,7 @@ TEST(PC_5P_LiH, Simple)
     Mat rmat;
     Rodrigues(rvec, rmat);
     Mat E = skew(tvec) * rmat;
-    std::cerr << E << std::endl;
+    std::cerr << E / E.at<double>(2, 2) << std::endl;
 
     auto camera_matrix = sampler.cameraMatrix();
     std::cerr << "rvecs = " << rvec << std::endl;

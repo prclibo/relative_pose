@@ -19,32 +19,43 @@ public:
 
     int runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const CV_OVERRIDE
     {
-        Mat_<Point2d> q1 = _m1.getMat(), q2 = _m2.getMat();
+        Mat2d q1 = _m1.getMat(), q2 = _m2.getMat();
         std::cerr << "q1 = " << q1 << std::endl;
         std::cerr << "q2 = " << q2 << std::endl;
+        CV_Assert(q1.type() == CV_64FC2 && q2.type() == CV_64FC2);
         CV_Assert(q1.cols == 1 && q2.cols == 1);
+
+        Mat _q1 = q1.reshape(1), _q2 = q2.reshape(1);
+        std::cerr << "q1.size() = " << _q1.size() << std::endl;
+        Mat1d mag1, mag2;
+        magnitude(_q1.col(0), _q1.col(1), mag1);
+        magnitude(_q2.col(0), _q2.col(1), mag2);
+        // _q1 /= repeat(mag1, 1, 2);
+        // _q2 /= repeat(mag2, 1, 2);
+        // q1 = _q1.reshape(2); q2 = _q2.reshape(2);
+
 
         double q[5][3], qp[5][3];
         for (int si = 0; si < 5; ++si)
         {
-            q[si][0] = q1(si, 0).x;
-            q[si][1] = q1(si, 1).y;
-            q[si][2] = 1;
-            qp[si][0] = q2(si, 0).x;
-            qp[si][1] = q2(si, 1).y;
-            qp[si][2] = 1;
+            q[si][0] = q1(si, 0)[0] / mag1(si, 0);
+            q[si][1] = q1(si, 0)[1] / mag1(si, 0);
+            q[si][2] = 1 / mag1(si, 0);
+            qp[si][0] = q2(si, 0)[0] / mag2(si, 0);
+            qp[si][1] = q2(si, 0)[1] / mag2(si, 0);
+            qp[si][2] = 1 / mag2(si, 0);
         }
 
         double ematrices[10][3][3];
         int num_roots;
-        compute_E_matrices(q, qp, ematrices, num_roots, true);
+        compute_E_matrices(q, qp, ematrices, num_roots, false);
 
         std::cerr << "num_roots = " << num_roots << std::endl;
         for (int i = 0; i < num_roots; ++i)
         {
             for (int r = 0; r < 3; ++r)
                 for (int c = 0; c < 3; ++c)
-                    std::cerr << ematrices[i][r][c] << " ";
+                    std::cerr << ematrices[i][r][c] / ematrices[i][2][2] << " ";
             std::cerr << std::endl;
         }
 
