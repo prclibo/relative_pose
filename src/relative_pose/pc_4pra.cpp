@@ -1189,12 +1189,17 @@ protected:
     }
 
 public:
+    static int count_;
     PC4PRAEstimatorCallback(float angle, float dist_thresh = 100)
         : angle_(angle)
-        , dist_thresh_(dist_thresh) {}
+        , dist_thresh_(dist_thresh) {count_ = 0;}
 
     int runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const CV_OVERRIDE
     {
+        std::cerr << "count = " << count_ << std::endl;
+        auto start = std::chrono::system_clock::now();
+        ++count_;
+
         Mat_<Point2d> q1 = _m1.getMat(), q2 = _m2.getMat();
         CV_Assert(q1.cols == 1 && q2.cols == 1);
 
@@ -1231,6 +1236,10 @@ public:
         }
         model = model.reshape(1);
         _model.assign(model);
+
+        auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> total_time = end - start;
+        std::cerr << "runKernel = " << total_time.count() << std::endl;
 
         return model.rows / 2;
     }
@@ -1288,6 +1297,8 @@ public:
     void computeError( InputArray _m1, InputArray _m2, InputArray _model,
             OutputArray _err ) const CV_OVERRIDE
     {
+        auto start = std::chrono::system_clock::now();
+
         Mat x1, x2;
         _m1.getMat().convertTo(x1, CV_32F);
         _m2.getMat().convertTo(x2, CV_32F);
@@ -1296,12 +1307,22 @@ public:
         cv::convertPointsToHomogeneous(x2, x2h);
         x1h = x1h.reshape(1);
         x2h = x2h.reshape(1);
+        {auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> total_time = end - start;
+        std::cerr << "computeError0.1 = " << total_time.count() << std::endl;}
 
         Mat model = _model.getMat(), rmat, rvec, tvec;
         model.row(0).convertTo(rvec, CV_32F);
         model.row(1).convertTo(tvec, CV_32F);
+        {auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> total_time = end - start;
+        std::cerr << "computeError0.2 = " << total_time.count() << std::endl;}
         Rodrigues(rvec, rmat);
         tvec = tvec.t();
+
+        {auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> total_time = end - start;
+        std::cerr << "computeError1 = " << total_time.count() << std::endl;}
 
         Mat1f E = skew(tvec) * rmat;
         Mat1f x2tE = x2h * E,
@@ -1318,6 +1339,10 @@ public:
         errs.convertTo(errs, CV_32F);
         errs = errs.t();
 
+        {auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> total_time = end - start;
+        std::cerr << "computeError2 = " << total_time.count() << std::endl;}
+
         // Cheirality check. c.f. cv::recovePose().
         Mat1f P1 = Mat1d::eye(3, 4), P2(3, 4);
         rmat.copyTo(P2.colRange(0, 3));
@@ -1333,8 +1358,15 @@ public:
         errs.setTo(std::numeric_limits<float>::quiet_NaN(), mask1 | mask2);
 
         _err.assign(errs);
+
+
+        {auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> total_time = end - start;
+        std::cerr << "computeError3 = " << total_time.count() << std::endl;}
     }
 };
+
+int PC4PRAEstimatorCallback::count_;
 
 void estimateRelativePose_PC4PRA(double angle,
         InputArray _points1, InputArray _points2,
@@ -1342,39 +1374,9 @@ void estimateRelativePose_PC4PRA(double angle,
         OutputArray _rvecs, OutputArray _tvecs, OutputArray _mask)
 {
     // CV_INSTRUMENT_REGION();
-
     Mat points1, points2, cameraMatrix;
-    _points1.getMat().convertTo(points1, CV_64F);
-    _points2.getMat().convertTo(points2, CV_64F);
-    _cameraMatrix.getMat().convertTo(cameraMatrix, CV_64F);
-
-    int npoints = points1.checkVector(2);
-    CV_Assert( npoints >= 0 && points2.checkVector(2) == npoints &&
-                              points1.type() == points2.type());
-
-    CV_Assert(cameraMatrix.rows == 3 && cameraMatrix.cols == 3 && cameraMatrix.channels() == 1);
-
-    if (points1.channels() > 1)
-    {
-        points1 = points1.reshape(1, npoints);
-        points2 = points2.reshape(1, npoints);
-    }
-
-    double fx = cameraMatrix.at<double>(0,0);
-    double fy = cameraMatrix.at<double>(1,1);
-    double cx = cameraMatrix.at<double>(0,2);
-    double cy = cameraMatrix.at<double>(1,2);
-
-    points1.col(0) = (points1.col(0) - cx) / fx;
-    points2.col(0) = (points2.col(0) - cx) / fx;
-    points1.col(1) = (points1.col(1) - cy) / fy;
-    points2.col(1) = (points2.col(1) - cy) / fy;
-
-    // Reshape data to fit opencv ransac function
-    points1 = points1.reshape(2, npoints);
-    points2 = points2.reshape(2, npoints);
-
-    threshold /= (fx+fy)/2;
+    processInputArray(_points1, _points2, _cameraMatrix, threshold,
+            points1, points2, cameraMatrix, threshold);
 
     Mat models;
     if( method == RANSAC )

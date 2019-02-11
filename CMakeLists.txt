@@ -7,6 +7,7 @@ add_compile_options(-O2)
 find_package(OpenCV REQUIRED)
 
 include_directories(include)
-add_subdirectory(src/relative_pose)
 add_subdirectory(third_party)
+
+add_subdirectory(src/relative_pose)
 add_subdirectory(test)

@@ -135,7 +135,7 @@ static inline bool haveCollinearPoints( const Mat& m, int count )
     return false;
 }
 template<typename T>
-Mat
+static inline Mat
 skewMat( const Mat_<T> &x )
 {
   Mat_<T> skew(3,3);
@@ -146,7 +146,7 @@ skewMat( const Mat_<T> &x )
   return std::move(skew);
 }
 
-Mat
+static inline Mat
 skew( InputArray _x )
 {
   const Mat x = _x.getMat();

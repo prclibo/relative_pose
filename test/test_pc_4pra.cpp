@@ -1,8 +1,11 @@
 #include <opencv2/opencv.hpp>
+#include "gtest/gtest.h"
+#include "../src/relative_pose/precomp.hpp"
 #include "relative_pose/relative_pose.hpp"
 
 struct DataSampler
 {
+    bool zero_screw_transl;
     double angle_bound, nearest_dist, baseline_turb, depth,
            focal, half_size;
     cv::Vec3d baseline;
@@ -25,6 +28,7 @@ DataSampler::DataSampler()
     depth = 10; 
     focal = 300; 
     half_size = 175; 
+    zero_screw_transl = true;
 
 }
 
@@ -50,7 +54,8 @@ void DataSampler::sample(int num_points, double noise, int num_outliers,
     Matx33d rmat; 
     Rodrigues(rvec, rmat); 
     tvec = -rmat * cvec;
-    if (angle > 1e-5) tvec -= (rvec / angle) * (tvec.dot(rvec) / angle);
+    if (zero_screw_transl && angle > 1e-5)
+        tvec -= (rvec / angle) * (tvec.dot(rvec) / angle);
     std::cerr << "tvec * rvec" << tvec.dot(rvec) << std::endl;
 
     auto camera_matrix = cameraMatrix();
@@ -93,8 +98,7 @@ void DataSampler::sample(int num_points, double noise, int num_outliers,
     _tvec.assign(Mat(tvec));
 }
 
-/*
-int main()
+TEST(PC_4PRA, Minimal)
 {
     using namespace cv;
 
@@ -109,7 +113,7 @@ int main()
 
     Vec3d rvec, tvec;
     std::vector<Point2d> image_points1, image_points2;
-    sampler.sample(20, 0, 12, rvec, tvec, image_points1, image_points2);
+    sampler.sample(4, 0, 0, rvec, tvec, image_points1, image_points2);
 
     auto camera_matrix = sampler.cameraMatrix();
     std::cerr << "rvecs = " << rvec << std::endl;
@@ -121,4 +125,64 @@ int main()
     std::cerr << mask.t() << std::endl;
 
 }
-*/*/*/*/*/*/*/*/
+
+TEST(PC_4PRA, RANSAC)
+{
+    using namespace cv;
+
+    DataSampler sampler;
+    sampler.angle_bound = CV_PI / 18; 
+    sampler.nearest_dist = 10; 
+    sampler.baseline_turb = 0.05; 
+    sampler.baseline = {0, 0, 1};
+    sampler.depth = 10; 
+    sampler.focal = 300; 
+    sampler.half_size = 175; 
+
+    Vec3d rvec, tvec;
+    std::vector<Point2d> image_points1, image_points2;
+    sampler.sample(1000, 0, 600, rvec, tvec, image_points1, image_points2);
+
+    auto camera_matrix = sampler.cameraMatrix();
+    std::cerr << "rvecs = " << rvec << std::endl;
+    Mat rvecs, tvecs, mask;
+    estimateRelativePose_PC4PRA(cv::norm(rvec),
+            image_points1, image_points2,
+            camera_matrix, cv::RANSAC, 0.99, 1e-2, rvecs, tvecs, mask);
+    std::cerr << rvecs << " " << tvecs << std::endl;
+    std::cerr << mask.t() << std::endl;
+
+}
+
+TEST(PC_5P_LiH, Simple)
+{
+    using namespace cv;
+
+    DataSampler sampler;
+    sampler.angle_bound = CV_PI / 18; 
+    sampler.nearest_dist = 10; 
+    sampler.baseline_turb = 0.05; 
+    sampler.baseline = {0, 0, 1};
+    sampler.depth = 10; 
+    sampler.focal = 300; 
+    sampler.half_size = 175; 
+
+    Vec3d rvec, tvec;
+    std::vector<Point2d> image_points1, image_points2;
+    sampler.sample(5, 0, 0, rvec, tvec, image_points1, image_points2);
+
+    Mat rmat;
+    Rodrigues(rvec, rmat);
+    Mat E = skew(tvec) * rmat;
+    std::cerr << E << std::endl;
+
+    auto camera_matrix = sampler.cameraMatrix();
+    std::cerr << "rvecs = " << rvec << std::endl;
+    Mat rvecs, tvecs, mask;
+    estimateRelativePose_PC5P_LiH(image_points1, image_points2,
+            camera_matrix, cv::RANSAC, 0.99, 1e-2, rvecs, tvecs, mask);
+    std::cerr << rvecs << " " << tvecs << std::endl;
+    std::cerr << mask.t() << std::endl;
+
+}
+

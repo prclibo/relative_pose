@@ -1,23 +1,12 @@
-cmake_minimum_required(VERSION 2.8.8)
+add_library(lih_5pt
+    5pt-6pt-Li-Hartley/Ematrix_5pt.cc
+    5pt-6pt-Li-Hartley/Ematrix_6pt.cc
+    5pt-6pt-Li-Hartley/polydet.cc
+    5pt-6pt-Li-Hartley/polyquotient.cc
+    5pt-6pt-Li-Hartley/sturm.cc)
 
-if (POLICY CMP0048)
-  cmake_policy(SET CMP0048 NEW)
-endif (POLICY CMP0048)
+include_directories(googletest-release-1.8.1/googletest/include)
+include_directories(googletest-release-1.8.1/googletest/)
+add_library(gtest_main googletest-release-1.8.1/googletest/src/gtest_main.cc)
+add_library(gtest_all googletest-release-1.8.1/googletest/src/gtest-all.cc)
 
-project(googletest-distribution)
-set(GOOGLETEST_VERSION 1.9.0)
-
-enable_testing()
-
-include(CMakeDependentOption)
-include(GNUInstallDirs)
-
-#Note that googlemock target already builds googletest
-option(BUILD_GMOCK "Builds the googlemock subproject" ON)
-option(INSTALL_GTEST "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)" ON)
-
-if(BUILD_GMOCK)
-  add_subdirectory( googlemock )
-else()
-  add_subdirectory( googletest )
-endif()
