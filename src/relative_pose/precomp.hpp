@@ -55,6 +55,12 @@
 
 #define GET_OPTIMIZED(func) (func)
 
+#ifndef CV_OVERRIDE
+#  define CV_OVERRIDE override
+#endif
+#ifndef CV_FINAL
+#  define CV_FINAL final
+#endif
 
 namespace cv
 {

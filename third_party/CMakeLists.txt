@@ -7,6 +7,8 @@ add_library(lih_5pt
 
 include_directories(googletest-release-1.8.1/googletest/include)
 include_directories(googletest-release-1.8.1/googletest/)
+
 add_library(gtest_main googletest-release-1.8.1/googletest/src/gtest_main.cc)
 add_library(gtest_all googletest-release-1.8.1/googletest/src/gtest-all.cc)
 
+target_link_libraries(gtest_all pthread m)

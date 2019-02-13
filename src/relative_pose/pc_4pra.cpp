@@ -1,6 +1,9 @@
+#include <chrono>
 #include <opencv2/opencv.hpp>
 #include "relative_pose/relative_pose.hpp"
 #include "precomp.hpp"
+#include "relative_pose_estimator.hpp"
+#include "nullqr.h"
 #include "sturm.h"
 
 int const NVIEWS = 2;
@@ -711,122 +714,6 @@ void auxArrays::matrix16x36 (const double x[NVIEWS][SAMPLE], const double y[NVIE
 
 
 
-// find the basis of the null space of an M x N matrix A (M < N) using specifically tailored QR factorization,
-// result is N - M N-vectors Q
-template <const int M, const int N>
-void nullQR (double A[M][N], double Q[N - M][N]) // matrix A changes during computation!!!
-{
-    const int NM = N - M, M1 = M - 1;
-
-    // find Hauseholder vectors
-    for (int j = 0; j < M; ++j)
-    {
-        double t = 0;
-        for (int i = j + 1; i < N; ++i)
-            t += pow(A[j][i], 2);
-        double mu = sqrt(pow(A[j][j], 2) + t);
-        mu = (A[j][j]<0)? 1.0/(A[j][j] - mu) : 1.0/(A[j][j] + mu);
-
-        //A[j][j] = 1.0;
-        for (int i = j + 1; i < N; ++i)
-            A[j][i] *= mu;
-
-        const double beta = -2.0/(1.0 + t*pow(mu, 2));
-        for (int k = j + 1; k < M; ++k)
-        {
-            double w = A[k][j];
-            for (int i = j + 1; i < N; ++i)
-                w += A[k][i]*A[j][i];
-            w *= beta;
-            for (int i = j + 1; i < N; ++i)
-                A[k][i] += A[j][i]*w;
-        }
-    }
-
-    // multiply m Householder matrices, inverse order is more efficient
-    // we only need last N - M columns of the resulting matrix
-    for (int i = 0; i < NM; ++i)
-        memset(Q[i], 0, sizeof(double)*M1);
-    //    for (int k = 0; k < M1; ++k)
-    //        Q[i][k] = 0.0;
-    
-    // start from Mth matrix
-    double beta = 1.0;
-    for (int i = M; i < N; ++i)
-        beta += pow(A[M1][i], 2);
-
-    beta = -2.0/beta;
-    for (int k = 0; k < NM; ++k)
-    {
-        Q[k][M1] = A[M1][k + M]*beta;
-        for (int i = M; i < N; ++i)
-            Q[k][i] = (k == i - M)? 1.0 + A[M1][i]*Q[k][M1] : A[M1][i]*Q[k][M1];
-    }
-    
-    // multiply by the remaining M-1 matrices
-    for (int j = M1 - 1; j >= 0; --j)
-    {
-        double beta = 1.0;
-        for (int i = j + 1; i < N; ++i)
-            beta += pow(A[j][i], 2);
-
-        beta = -2.0/beta;
-        for (int k = 0; k < NM; ++k)
-        {
-            double w = Q[k][j];
-            for (int i = j + 1; i < N; ++i)
-                w += Q[k][i]*A[j][i];
-            w *= beta;
-            Q[k][j] += w;
-            for (int i = j + 1; i < N; ++i)
-                Q[k][i] += A[j][i]*w;
-        }
-    }
-
-} // end nullQR()
-
-
-
-// Specifically tailored Gauss-Jordan elimination with partial pivoting on M x N matrix B
-void gj (double B[16][36])
-{
-    const int M = 16, N = 36;
-    for (int i = 0; i < M; ++i)
-    { // index i numbers first M columns of B
-        int ipiv = i, i1 = i + 1;
-        double piv = B[i][i];
-        for (int k = i1; k < M; ++k)
-        {
-            if (fabs(B[k][i]) > fabs(piv))
-            {
-                piv = B[k][i];
-                ipiv = k;
-            }
-        }
-
-        const int k1 = (i < 10)? i1 : 10; // optimization!!!
-
-        if (!piv) continue;
-        B[ipiv][i] = B[i][i];
-        B[i][i] = piv;
-        piv = 1.0/piv;
-        for (int j = i1; j < N; ++j)
-        { // index j numbers columns of B from i1 to N - 1
-            const double t = B[ipiv][j];
-            B[ipiv][j] = B[i][j];
-            B[i][j] = t*piv;
-            for (int k = k1; k < M; ++k)
-            { // index k numbers rows of B from k1 to M - 1
-                if (k == i) continue;
-                B[k][j] -= B[i][j]*B[k][i];
-            }
-        }
-    }
-
-} // end gj()
-
-
-
 // compute determinant of 4x4 matrix, the result is a polynomial p(x) of degree 20.
 void auxArrays::det4x4 ()
 {
@@ -900,7 +787,7 @@ void auxArrays::det4x4 ()
 // compute 20th degree univariate polynomial
 void auxArrays::poly20 ()
 {
-    gj(B);
+    gj<16, 36>(B);
     // w^0
     D[0][0][0] = -B[10][19];
     D[0][1][0] = -B[10][24];
@@ -1029,7 +916,7 @@ void auxArrays::poly20 ()
 // the output is the number of real solutions found
 int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
         const double z[NVIEWS][SAMPLE], const double &ss,
-        double rbuf[MAXSOLS * 3], double tbuf[MAXSOLS * 3])
+        double rbuf[MAXSOLS * 9], double tbuf[MAXSOLS * 3])
 {
     auxArrays S;
     const double s = sqrt(ss);
@@ -1071,24 +958,25 @@ int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
         const double uu2 = u*u2, vv2 = v*v2, ww2 = w*w2, ss2 = 2*ss;
         const double uv2 = u2*v, vw2 = v2*w, uw2 = u2*w, us2 = u2*s, vs2 = v2*s, ws2 = w2*s;
 
-        ce[k].Rt[1][0] = uu2 + ss2 - 1;
-        ce[k].Rt[1][1] = ws2 + uv2;
-        ce[k].Rt[1][2] = uw2 - vs2;
-        ce[k].Rt[1][3] = uv2 - ws2;
-        ce[k].Rt[1][4] = vv2 + ss2 - 1;
-        ce[k].Rt[1][5] = us2 + vw2;
-        ce[k].Rt[1][6] = vs2 + uw2;
-        ce[k].Rt[1][7] = vw2 - us2;
-        ce[k].Rt[1][8] = ww2 + ss2 - 1;
+        double* const rmat = rbuf + 9 * k;
+        rmat[0] = uu2 + ss2 - 1;
+        rmat[1] = ws2 + uv2;
+        rmat[2] = uw2 - vs2;
+        rmat[3] = uv2 - ws2;
+        rmat[4] = vv2 + ss2 - 1;
+        rmat[5] = us2 + vw2;
+        rmat[6] = vs2 + uw2;
+        rmat[7] = vw2 - us2;
+        rmat[8] = ww2 + ss2 - 1;
 
         // compute translation vector t
         double S[2][3], t[1][3];
-        const double t1 = ce[k].Rt[1][6]*x[0][0] + ce[k].Rt[1][7]*y[0][0] + ce[k].Rt[1][8]*z[0][0];
-        const double t2 = ce[k].Rt[1][3]*x[0][0] + ce[k].Rt[1][4]*y[0][0] + ce[k].Rt[1][5]*z[0][0];
-        const double t3 = ce[k].Rt[1][0]*x[0][0] + ce[k].Rt[1][1]*y[0][0] + ce[k].Rt[1][2]*z[0][0];
-        const double t4 = ce[k].Rt[1][6]*x[0][1] + ce[k].Rt[1][7]*y[0][1] + ce[k].Rt[1][8]*z[0][1];
-        const double t5 = ce[k].Rt[1][3]*x[0][1] + ce[k].Rt[1][4]*y[0][1] + ce[k].Rt[1][5]*z[0][1];
-        const double t6 = ce[k].Rt[1][0]*x[0][1] + ce[k].Rt[1][1]*y[0][1] + ce[k].Rt[1][2]*z[0][1];
+        const double t1 = rmat[6]*x[0][0] + rmat[7]*y[0][0] + rmat[8]*z[0][0];
+        const double t2 = rmat[3]*x[0][0] + rmat[4]*y[0][0] + rmat[5]*z[0][0];
+        const double t3 = rmat[0]*x[0][0] + rmat[1]*y[0][0] + rmat[2]*z[0][0];
+        const double t4 = rmat[6]*x[0][1] + rmat[7]*y[0][1] + rmat[8]*z[0][1];
+        const double t5 = rmat[3]*x[0][1] + rmat[4]*y[0][1] + rmat[5]*z[0][1];
+        const double t6 = rmat[0]*x[0][1] + rmat[1]*y[0][1] + rmat[2]*z[0][1];
         S[0][0] = t2*z[1][0] - t1*y[1][0];
         S[0][1] = t1*x[1][0] - t3*z[1][0];
         S[0][2] = t3*y[1][0] - t2*x[1][0];
@@ -1100,10 +988,10 @@ int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
         // normalize translation vectors so that ||t2|| = 1
         const double n = sqrt(pow(t[0][0], 2) + pow(t[0][1], 2) + pow(t[0][2], 2));
 
-        double angle = std::acos(s) * 2;
-        rbuf[k * 3 + 0] = u / b * angle;
-        rbuf[k * 3 + 1] = v / b * angle;
-        rbuf[k * 3 + 2] = w / b * angle;
+        // double angle = std::acos(s) * 2;
+        // rbuf[k * 3 + 0] = u / b * angle;
+        // rbuf[k * 3 + 1] = v / b * angle;
+        // rbuf[k * 3 + 2] = w / b * angle;
 
         tbuf[k * 3 + 0] = t[0][0] / n;
         tbuf[k * 3 + 1] = t[0][1] / n;
@@ -1119,7 +1007,7 @@ int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
 namespace cv
 {
 
-class PC4PRAEstimatorCallback CV_FINAL : public PointSetRegistrator::Callback
+class PC4PRAEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallback
 {
 protected:
     float angle_, dist_thresh_;
@@ -1149,33 +1037,33 @@ protected:
         double fac = std::sqrt((1.0 - ss) / (u*u + v*v + w*w));
         u *= fac; v *= fac; w *= fac;
 
-	// compute rotation matrix
+        // compute rotation matrix
         // FIXME(li): Evgeniy's 4p2v code seems using transposed
         // quaternion<->rotation matrix representation instead of the
         // wikipedia convention.
         // https://math.stackexchange.com/questions/383754/are-there-different-conventions-for-representing-rotations-as-quaternions.
-	const double u2 = 2*u, v2 = 2*v, w2 = 2*w;
-	const double uu2 = u*u2, vv2 = v*v2, ww2 = w*w2, ss2 = 2*ss;
-	const double uv2 = u2*v, vw2 = v2*w, uw2 = u2*w, us2 = u2*s, vs2 = v2*s, ws2 = w2*s;
+        const double u2 = 2*u, v2 = 2*v, w2 = 2*w;
+        const double uu2 = u*u2, vv2 = v*v2, ww2 = w*w2, ss2 = 2*ss;
+        const double uv2 = u2*v, vw2 = v2*w, uw2 = u2*w, us2 = u2*s, vs2 = v2*s, ws2 = w2*s;
 
         double R[9];
-	R[0] = uu2 + ss2 - 1;   R[1] = ws2 + uv2;       R[2] = uw2 - vs2;
-	R[3] = uv2 - ws2;       R[4] = vv2 + ss2 - 1;   R[5] = us2 + vw2;
-	R[6] = vs2 + uw2;       R[7] = vw2 - us2;       R[8] = ww2 + ss2 - 1;
-	const double t1 = R[6]*x[0][0] + R[7]*y[0][0] + R[8]*z[0][0];
-	const double t2 = R[3]*x[0][0] + R[4]*y[0][0] + R[5]*z[0][0];
-	const double t3 = R[0]*x[0][0] + R[1]*y[0][0] + R[2]*z[0][0];
-	const double t4 = R[6]*x[0][1] + R[7]*y[0][1] + R[8]*z[0][1];
-	const double t5 = R[3]*x[0][1] + R[4]*y[0][1] + R[5]*z[0][1];
-	const double t6 = R[0]*x[0][1] + R[1]*y[0][1] + R[2]*z[0][1];
+        R[0] = uu2 + ss2 - 1;   R[1] = ws2 + uv2;       R[2] = uw2 - vs2;
+        R[3] = uv2 - ws2;       R[4] = vv2 + ss2 - 1;   R[5] = us2 + vw2;
+        R[6] = vs2 + uw2;       R[7] = vw2 - us2;       R[8] = ww2 + ss2 - 1;
+        const double t1 = R[6]*x[0][0] + R[7]*y[0][0] + R[8]*z[0][0];
+        const double t2 = R[3]*x[0][0] + R[4]*y[0][0] + R[5]*z[0][0];
+        const double t3 = R[0]*x[0][0] + R[1]*y[0][0] + R[2]*z[0][0];
+        const double t4 = R[6]*x[0][1] + R[7]*y[0][1] + R[8]*z[0][1];
+        const double t5 = R[3]*x[0][1] + R[4]*y[0][1] + R[5]*z[0][1];
+        const double t6 = R[0]*x[0][1] + R[1]*y[0][1] + R[2]*z[0][1];
         Mat1d S(2, 3);
         Vec3d t;
-	S[0][0] = t2*z[1][0] - t1*y[1][0];
-	S[0][1] = t1*x[1][0] - t3*z[1][0];
-	S[0][2] = t3*y[1][0] - t2*x[1][0];
-	S[1][0] = t5*z[1][1] - t4*y[1][1];
-	S[1][1] = t4*x[1][1] - t6*z[1][1];
-	S[1][2] = t6*y[1][1] - t5*x[1][1];
+        S[0][0] = t2*z[1][0] - t1*y[1][0];
+        S[0][1] = t1*x[1][0] - t3*z[1][0];
+        S[0][2] = t3*y[1][0] - t2*x[1][0];
+        S[1][0] = t5*z[1][1] - t4*y[1][1];
+        S[1][1] = t4*x[1][1] - t6*z[1][1];
+        S[1][2] = t6*y[1][1] - t5*x[1][1];
 
         rvec = {u, v, w};
         rvec *= angle_ / std::sqrt(1.0 - ss);
@@ -1189,17 +1077,12 @@ protected:
     }
 
 public:
-    static int count_;
     PC4PRAEstimatorCallback(float angle, float dist_thresh = 100)
         : angle_(angle)
-        , dist_thresh_(dist_thresh) {count_ = 0;}
+        , dist_thresh_(dist_thresh) {}
 
     int runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const CV_OVERRIDE
     {
-        std::cerr << "count = " << count_ << std::endl;
-        auto start = std::chrono::system_clock::now();
-        ++count_;
-
         Mat_<Point2d> q1 = _m1.getMat(), q2 = _m2.getMat();
         CV_Assert(q1.cols == 1 && q2.cols == 1);
 
@@ -1216,32 +1099,21 @@ public:
 
         const double s = std::cos(angle_ / 2);
         const double ss = s * s;
-        double rbuf[MAXSOLS * 3], tbuf[MAXSOLS * 3];
+        double rbuf[MAXSOLS * 9], tbuf[MAXSOLS * 3];
         int ns = solver4p2v(x, y, z, ss, rbuf, tbuf);
 
         Mat1d model;
         for (int i = 0; i < ns; ++i)
         {
-            Vec3d rvec(rbuf + i * 3), tvec(tbuf + i * 3);
-            // FIXME(li): Evgeniy's 4p2v code seems using transposed
-            // quaternion<->rotation matrix representation instead of the
-            // wikipedia convention.
-            // https://math.stackexchange.com/questions/383754/are-there-different-conventions-for-representing-rotations-as-quaternions.
-            rvec *= -1;
+            Mat1d rmat(3, 3, rbuf + i * 9), tvec(3, 1, tbuf + i * 3);
+            Mat1d E = skew(tvec) * rmat;
 
-            model.push_back(rvec);
-            model.push_back(tvec);
-            model.push_back(rvec);
-            model.push_back(-tvec);
+            model.push_back(E);
         }
         model = model.reshape(1);
         _model.assign(model);
 
-        auto end = std::chrono::system_clock::now();
-        std::chrono::duration<double> total_time = end - start;
-        std::cerr << "runKernel = " << total_time.count() << std::endl;
-
-        return model.rows / 2;
+        return model.rows / 3;
     }
 
     int _runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const // CV_OVERRIDE
@@ -1293,85 +1165,12 @@ public:
 
         return model.rows / 2;
     }
-
-    void computeError( InputArray _m1, InputArray _m2, InputArray _model,
-            OutputArray _err ) const CV_OVERRIDE
-    {
-        auto start = std::chrono::system_clock::now();
-
-        Mat x1, x2;
-        _m1.getMat().convertTo(x1, CV_32F);
-        _m2.getMat().convertTo(x2, CV_32F);
-        Mat x1h, x2h;
-        cv::convertPointsToHomogeneous(x1, x1h);
-        cv::convertPointsToHomogeneous(x2, x2h);
-        x1h = x1h.reshape(1);
-        x2h = x2h.reshape(1);
-        {auto end = std::chrono::system_clock::now();
-        std::chrono::duration<double> total_time = end - start;
-        std::cerr << "computeError0.1 = " << total_time.count() << std::endl;}
-
-        Mat model = _model.getMat(), rmat, rvec, tvec;
-        model.row(0).convertTo(rvec, CV_32F);
-        model.row(1).convertTo(tvec, CV_32F);
-        {auto end = std::chrono::system_clock::now();
-        std::chrono::duration<double> total_time = end - start;
-        std::cerr << "computeError0.2 = " << total_time.count() << std::endl;}
-        Rodrigues(rvec, rmat);
-        tvec = tvec.t();
-
-        {auto end = std::chrono::system_clock::now();
-        std::chrono::duration<double> total_time = end - start;
-        std::cerr << "computeError1 = " << total_time.count() << std::endl;}
-
-        Mat1f E = skew(tvec) * rmat;
-        Mat1f x2tE = x2h * E,
-              x1tE = x1h * E;
-        Mat1f x1tE_sqr = x1tE.mul(x1tE),
-              x2tE_sqr = x2tE.mul(x2tE);
-        Mat1f x2tEx1 = x2tE.mul(x1h);
-        reduce(x2tEx1, x2tEx1, 1, REDUCE_SUM);
-        Mat1f x2tEx1_sqr = x2tEx1.mul(x2tEx1);
-
-        Mat1f errs;
-        divide(x2tEx1_sqr, x1tE_sqr.col(0) + x1tE_sqr.col(1) +
-                x2tE_sqr.col(0) + x2tE_sqr.col(1), errs);
-        errs.convertTo(errs, CV_32F);
-        errs = errs.t();
-
-        {auto end = std::chrono::system_clock::now();
-        std::chrono::duration<double> total_time = end - start;
-        std::cerr << "computeError2 = " << total_time.count() << std::endl;}
-
-        // Cheirality check. c.f. cv::recovePose().
-        Mat1f P1 = Mat1d::eye(3, 4), P2(3, 4);
-        rmat.copyTo(P2.colRange(0, 3));
-        tvec.copyTo(P2.col(3));
-        Mat1f tlated(0, 0);
-        triangulatePoints(P1, P2, x1, x2, tlated);
-
-        tlated = tlated / repeat(tlated.row(3), 4, 1);
-        auto mask1 = (tlated.row(2) > 0) & (tlated.row(2) < dist_thresh_);
-        tlated = P2 * tlated;
-        auto mask2 = (tlated.row(2) > 0) & (tlated.row(2) < dist_thresh_);
-
-        errs.setTo(std::numeric_limits<float>::quiet_NaN(), mask1 | mask2);
-
-        _err.assign(errs);
-
-
-        {auto end = std::chrono::system_clock::now();
-        std::chrono::duration<double> total_time = end - start;
-        std::cerr << "computeError3 = " << total_time.count() << std::endl;}
-    }
 };
 
-int PC4PRAEstimatorCallback::count_;
-
-void estimateRelativePose_PC4PRA(double angle,
+Mat estimateRelativePose_PC4PRA(double angle,
         InputArray _points1, InputArray _points2,
         InputArray _cameraMatrix, int method, double prob, double threshold,
-        OutputArray _rvecs, OutputArray _tvecs, OutputArray _mask)
+        OutputArray _mask)
 {
     // CV_INSTRUMENT_REGION();
     Mat points1, points2, cameraMatrix;
@@ -1388,13 +1187,6 @@ void estimateRelativePose_PC4PRA(double angle,
                 makePtr<PC4PRAEstimatorCallback>(angle), 4, prob)->run(
                 points1, points2, models, _mask);
 
-    Mat1d rvecs, tvecs;
-    for (int i = 0; i < models.rows; i += 2)
-    {
-        rvecs.push_back(models.row(i) * 1.0);
-        tvecs.push_back(models.row(i + 1) * 1.0);
-    }
-    _rvecs.assign(rvecs);
-    _tvecs.assign(tvecs);
+    return models;
 }
 }

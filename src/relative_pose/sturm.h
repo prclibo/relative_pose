@@ -10,7 +10,7 @@ int const MAXSOLS = 20;
 
 // all real roots of a polynomial p(x) lie in (bound[0], bound[1])
 // Kioustelidis' method
-void getBounds (const double p[DEG], double bound[2])
+static void getBounds (const double p[DEG], double bound[2])
 {
 	double M = fabs(p[0]);
 	bound[0] = bound[1]=0.0;
@@ -41,7 +41,7 @@ void getBounds (const double p[DEG], double bound[2])
 
 
 // get data to compute the Sturm sequence for a polynomial p(x) at any point
-void getQuotients (const double p[DEG], const double dp[DEG - 1], double q[DEG + 1][2])
+static void getQuotients (const double p[DEG], const double dp[DEG - 1], double q[DEG + 1][2])
 {
 	double r_[DEG], r[DEG - 1];
 	
@@ -90,7 +90,7 @@ void getQuotients (const double p[DEG], const double dp[DEG - 1], double q[DEG +
 
 
 // evaluate polynomial p(x) at point x0
-double evalPoly (const double p[DEG], const double &x0)
+static double evalPoly (const double p[DEG], const double &x0)
 {
 	double s = x0 + p[DEG - 1];
 	for (int i = DEG - 2; i >= 0; --i)
@@ -102,7 +102,7 @@ double evalPoly (const double p[DEG], const double &x0)
 
 
 // compute the number of sign changes in a sequence seq[]
-int nchanges (const double seq[DEG + 1])
+static int nchanges (const double seq[DEG + 1])
 {
 	int s = 0, s1, s2 = (seq[0] > 0.0)? 1 : ((seq[0] < 0.0)? -1 : 0);
 	for (int i = 1; i < DEG + 1 && seq[i]; ++i)
@@ -118,7 +118,7 @@ int nchanges (const double seq[DEG + 1])
 
 
 // evaluate Sturm sequence at point a
-int evalSturmSeq (const double q[DEG + 1][2], const double &a)
+static int evalSturmSeq (const double q[DEG + 1][2], const double &a)
 {
 	double sa[DEG + 1];
 	// initialize sa
@@ -135,7 +135,7 @@ int evalSturmSeq (const double q[DEG + 1][2], const double &a)
 
 
 // isolate all real roots of a given polynomial p(x)
-int isolateRoots (const double p[DEG], const double dp[DEG - 1], double Isol[DEG][2])
+static int isolateRoots (const double p[DEG], const double dp[DEG - 1], double Isol[DEG][2])
 {
 	int nIsol = 0, nTree = 1, nIters = 1, min = 0, sTree[MAXTREE][2];
 	double Tree[MAXTREE][2], q[DEG + 1][2];
@@ -200,7 +200,7 @@ int isolateRoots (const double p[DEG], const double dp[DEG - 1], double Isol[DEG
 // using Ridders' method, return the root of a polynomial p(x) known to lie between xl and x2
 // this function is adopted from "Numerical recipes in C" by Press et al.
 // the output is either 1, or 0 (no solution found)
-bool polishRoots (const double p[DEG], const double &x1, const double &x2, double &ans)
+static bool polishRoots (const double p[DEG], const double &x1, const double &x2, double &ans)
 {
 	double fl = evalPoly(p, x1), fh = evalPoly(p, x2);
 	if (!fh)
@@ -268,7 +268,7 @@ bool polishRoots (const double p[DEG], const double &x1, const double &x2, doubl
 
 
 // find all real roots of the input square-free polynomial p(x) of degree DEG
-int realRoots (const double p[DEG + 1], double roots[DEG])
+static int realRoots (const double p[DEG + 1], double roots[DEG])
 {
 	#ifdef DEBUG_ERR
 	{

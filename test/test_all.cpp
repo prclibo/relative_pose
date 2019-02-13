@@ -1,6 +1,7 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include "relative_pose/relative_pose.hpp"
+#include "data_sampler.hpp"
 
 enum METHOD
 {
@@ -9,128 +10,74 @@ enum METHOD
     PC_4PST0 = 2
 };
 
+int const LOOPS = 1000;
+
 int main()
 {
-    double angle_bound = CV_PI / 18; 
+    using namespace cv;
 
-    double nearest_dist = 10; 
-    double baseline_dev = 0.05; 
-    double baseline = -1; 
-    double depth = 10; 
-
-    double focal = 300; 
-    double bound_2d = 175; 
-
-    cv::RNG rng;
-    std::unordered_map<int, std::vector<cv::Mat>> t_angles;
-    
-    std::chrono::duration<double> total_time(0);
+    std::chrono::duration<double> ttime_pc5p_lih(0),
+                                  ttime_pc4pra(0),
+                                  ttime_pc4pst0(0);
     for (double stdd = 0.1; stdd <= 1.0; stdd += 0.1)
     {
         double sigma = stdd; 
+        DataSampler sampler;
 
-        for (int i = 0; i < 1000; i++)
+        for (int i = 0; i < LOOPS; i++)
         {    
-            cv::Mat rvec(3, 1, CV_64F), tvec(3, 1, CV_64F), cvec(3, 1, CV_64F); 
-            rng.fill(rvec, cv::RNG::UNIFORM, -angle_bound, angle_bound); 
-            rng.fill(cvec, cv::RNG::UNIFORM, -baseline_dev, baseline_dev); 
-            
-            cvec.at<double>(2) = baseline;  
-            normalize(cvec, cvec); 
+            Vec3d rvec, tvec;
+            std::vector<Point2d> image_points1, image_points2;
+            sampler.sample(5, rvec, tvec, image_points1, image_points2);
 
-            cv::Mat rmat; 
-            Rodrigues(rvec, rmat); 
-            double angle = cv::norm(rvec);
+            {
+                cv::Mat rvecs, tvecs, mask;
+                auto start = std::chrono::system_clock::now();
+                Mat E = estimateRelativePose_PC5P_LiH(image_points1, image_points2,
+                        sampler.cameraMatrix(), cv::RANSAC, 0.99, 1e-2, mask);
+                auto end = std::chrono::system_clock::now();
+                ttime_pc5p_lih += (end - start);
+            }
 
-            tvec = -rmat * cvec; 
+            image_points1.resize(4); image_points2.resize(4);
+            {
+                cv::Mat rvecs, tvecs, mask;
+                auto start = std::chrono::system_clock::now();
+                Mat E = estimateRelativePose_PC4PRA(cv::norm(rvec),
+                        image_points1, image_points2,
+                        sampler.cameraMatrix(), cv::RANSAC, 0.99, 1e-2, mask);
+                auto end = std::chrono::system_clock::now();
+                ttime_pc4pra += (end - start);
+            }
+            {
+                cv::Mat rvecs, tvecs, mask;
+                auto start = std::chrono::system_clock::now();
+                Mat E = estimateRelativePose_PC4PST0_NullE(
+                        image_points1, image_points2,
+                        sampler.cameraMatrix(), cv::RANSAC, 0.99, 1e-2, mask);
+                auto end = std::chrono::system_clock::now();
+                ttime_pc4pst0 += (end - start);
+            }
 
-            cv::Mat camera_matrix = (cv::Mat_<double>(3, 3) << focal, 0, 0, 0, focal, 0, 0, 0, 1); 
-            
-            cv::Mat object_points(5, 3, CV_64F); 
-            rng.fill(object_points, cv::RNG::UNIFORM, -bound_2d, bound_2d); 
-            object_points.col(2) = 1; 
 
-            object_points = camera_matrix.inv() * object_points.t();
-            object_points = object_points.t();
+            // estimateRelativePose_PC4PRA(angle,
+            //         image_points1.rowRange(0, 4), image_points2.rowRange(0, 4),
+            //         camera_matrix, cv::RANSAC, 0.99, 1, rvecs, tvecs, mask);
+            // std::cerr << rvecs << std::endl;
+            // std::cerr << rvec << std::endl;
+            // auto end = std::chrono::system_clock::now();
+            // total_time += (end - start);
 
-            cv::Mat ds_(5, 1, CV_64F), ds;
-            rng.fill(ds_, cv::RNG::UNIFORM, nearest_dist, nearest_dist + depth); 
-            cv::repeat(ds_, 1, 3, ds);
-            cv::multiply(object_points, ds, object_points);
-
-            cv::Mat image_points1, image_points2;
-            cv::Mat zero3d = cv::Mat::zeros(1, 3, CV_64F);
-            cv::projectPoints(object_points, zero3d, zero3d,
-                    camera_matrix, cv::noArray(), image_points1);
-            cv::projectPoints(object_points, rvec, tvec,
-                    camera_matrix, cv::noArray(), image_points2);
-            
-            std::vector<cv::Point2f> vec = {{1, 2}, {2, 3}};
-
-            // std::cerr << "rvec0 = " << rvec << " " << tvec / cv::norm(tvec) << std::endl;
-            // std::cerr << "q0 = " << rvec.t() / angle * std::sin(angle / 2) << std::endl;
-
-            cv::Mat rvecs, tvecs, mask;
-            auto start = std::chrono::system_clock::now();
-            estimateRelativePose_PC4PRA(angle,
-                    image_points1.rowRange(0, 4), image_points2.rowRange(0, 4),
-                    camera_matrix, cv::RANSAC, 0.99, 1, rvecs, tvecs, mask);
-            std::cerr << rvecs << std::endl;
-            std::cerr << rvec << std::endl;
-            auto end = std::chrono::system_clock::now();
-            total_time += (end - start);
-
-            exit(0);
             // std::cerr << rvecs << tvecs << std::endl;
-
-//     std::cerr << "a4" << std::endl;
-//             cv::Mat x1s = K * Xs.t(); 
-//             cv::Mat x2s = rmat * Xs.t(); 
-//             for (int j = 0; j < x2s.cols; j++) x2s.col(j) += tvec; 
-//             x2s = K * x2s; 
-// 
-// 
-//         
-//             x1s.row(0) /= x1s.row(2); 
-//             x1s.row(1) /= x1s.row(2); 
-//             x1s.row(2) /= x1s.row(2); 
-//         
-//             x2s.row(0) /= x2s.row(2); 
-//             x2s.row(1) /= x2s.row(2); 
-//             x2s.row(2) /= x2s.row(2); 
-//     std::cerr << "a5" << std::endl;
-//     
-//             x1s = x1s.t(); 
-//             x2s = x2s.t(); 
-//     
-//             x1s = x1s.colRange(0, 2) * 1.0; 
-//             x2s = x2s.colRange(0, 2) * 1.0; 
-// 
-//             x1s = x1s.reshape(2, 1);
-//             x2s = x2s.reshape(2, 1);
-//     std::cerr << "a6" << std::endl;
-//     
-//             cv::Mat noise1(x1s.size(), CV_64FC2), noise2(x2s.size(), CV_64FC2); 
-//             rng.fill(noise1, cv::RNG::NORMAL, 0, sigma); 
-//             cv::Mat x1s_noise = x1s + noise1; 
-//             rng.fill(noise2, cv::RNG::NORMAL, 0, sigma); 
-//             cv::Mat x2s_noise = x2s + noise2; 
-// 
-//     std::cerr << "a5" << std::endl;
-//             tvec /= norm(tvec); 
-//             std::cerr << "a1" << std::endl;
-//             std::cerr << rvec << angle << std::endl;
-//             std::cerr << tvec << std::endl;
-// 
-//             cv::Mat rvecs, tvecs, mask;
-//             estimateRelativePose_PC4PRA(angle, x1s_noise, x2s_noise, K, 0, 0.99, 1,
-//                     rvecs, tvecs, mask);
 
 
         }
+        break;
 
     }
 
-    std::cerr << total_time.count() / 10000 << std::endl;
+    std::cout << ttime_pc5p_lih.count() / LOOPS << std::endl;
+    std::cout << ttime_pc4pra.count() / LOOPS << std::endl;
+    std::cout << ttime_pc4pst0.count() / LOOPS << std::endl;
 
 }
