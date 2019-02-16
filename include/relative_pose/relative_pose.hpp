@@ -35,6 +35,9 @@ static void processInputArray(InputArray _points1, InputArray _points2,
     points1.col(1) = (points1.col(1) - cy) / fy;
     points2.col(1) = (points2.col(1) - cy) / fy;
 
+    std::cerr << "points1 = " << points1 << std::endl;
+    std::cerr << "points2 = " << points2 << std::endl;
+
     // Reshape data to fit opencv ransac function
     points1 = points1.reshape(2, npoints);
     points2 = points2.reshape(2, npoints);

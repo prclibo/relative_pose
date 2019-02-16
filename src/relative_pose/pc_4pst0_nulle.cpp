@@ -469,7 +469,7 @@ Mat estimateRelativePose_PC4PST0_NullE(
     Mat points1, points2, cameraMatrix;
     processInputArray(_points1, _points2, _cameraMatrix, threshold,
             points1, points2, cameraMatrix, threshold);
-    // std::cerr << "processed" << std::endl;
+    std::cerr << points1.size() << " " << points2.size() <<" processed" << std::endl;
 
     Mat models;
     if( method == RANSAC )
@@ -481,6 +481,7 @@ Mat estimateRelativePose_PC4PST0_NullE(
                 makePtr<PC4PST0NullEEstimatorCallback>(), 4, prob)->run(
                 points1, points2, models, _mask);
 
+    std::cout << models << std::endl;
     return models;
 }
 

@@ -15,3 +15,7 @@ add_subdirectory(third_party)
 
 add_subdirectory(src/relative_pose)
 add_subdirectory(test)
+
+find_package(Matlab REQUIRED COMPONENTS MAIN_PROGRAM)
+add_subdirectory(matlab)
+
