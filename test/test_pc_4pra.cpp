@@ -12,8 +12,8 @@ TEST(PC_4PRA, Minimal)
 
     DataSampler sampler;
     Vec3d rvec, tvec;
-    std::vector<Point2d> image_points1, image_points2;
-    sampler.sample(4, rvec, tvec, image_points1, image_points2);
+    std::vector<Point3d> image_rays1, image_rays2;
+    sampler.sampleRays(4, rvec, tvec, image_rays1, image_rays2);
 
     Mat rmat;
     Rodrigues(rvec, rmat);
@@ -24,7 +24,7 @@ TEST(PC_4PRA, Minimal)
     std::cerr << "rvecs = " << rvec << std::endl;
     Mat rvecs, tvecs, mask;
     Mat E = estimateRelativePose_PC4PRA(cv::norm(rvec),
-            image_points1, image_points2,
+            image_rays1, image_rays2,
             camera_matrix, cv::RANSAC, 0.99, 1e-2, mask);
 
     std::cerr << "type = " << E0.type() << " " << E.type() << std::endl;

@@ -1083,18 +1083,18 @@ public:
 
     int runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const CV_OVERRIDE
     {
-        Mat_<Point2d> q1 = _m1.getMat(), q2 = _m2.getMat();
+        Mat3d q1 = _m1.getMat(), q2 = _m2.getMat();
         CV_Assert(q1.cols == 1 && q2.cols == 1);
 
         double x[NVIEWS][SAMPLE], y[NVIEWS][SAMPLE], z[NVIEWS][SAMPLE];
         for (int si = 0; si < SAMPLE; ++si)
         {
-            x[0][si] = q1(si, 0).x;
-            y[0][si] = q1(si, 0).y;
-            z[0][si] = 1;
-            x[1][si] = q2(si, 0).x;
-            y[1][si] = q2(si, 0).y;
-            z[1][si] = 1;
+            x[0][si] = q1(si, 0)[0];
+            y[0][si] = q1(si, 0)[1];
+            z[0][si] = q1(si, 0)[2];
+            x[1][si] = q2(si, 0)[0];
+            y[1][si] = q2(si, 0)[1];
+            z[1][si] = q2(si, 0)[2];
         }
 
         const double s = std::cos(angle_ / 2);
@@ -1116,76 +1116,76 @@ public:
         return model.rows / 3;
     }
 
-    int _runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const // CV_OVERRIDE
-    {
-        Mat_<Point2d> q1 = _m1.getMat(), q2 = _m2.getMat();
-        CV_Assert(q1.cols == 1 && q2.cols == 1);
+    // int _runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const // CV_OVERRIDE
+    // {
+    //     Mat_<Point2d> q1 = _m1.getMat(), q2 = _m2.getMat();
+    //     CV_Assert(q1.cols == 1 && q2.cols == 1);
 
-        double x[NVIEWS][SAMPLE], y[NVIEWS][SAMPLE], z[NVIEWS][SAMPLE];
-        for (int si = 0; si < SAMPLE; ++si)
-        {
-            x[0][si] = q1(si, 0).x;
-            y[0][si] = q1(si, 0).y;
-            z[0][si] = 1;
-            x[1][si] = q2(si, 0).x;
-            y[1][si] = q2(si, 0).y;
-            z[1][si] = 1;
-        }
+    //     double x[NVIEWS][SAMPLE], y[NVIEWS][SAMPLE], z[NVIEWS][SAMPLE];
+    //     for (int si = 0; si < SAMPLE; ++si)
+    //     {
+    //         x[0][si] = q1(si, 0).x;
+    //         y[0][si] = q1(si, 0).y;
+    //         z[0][si] = 1;
+    //         x[1][si] = q2(si, 0).x;
+    //         y[1][si] = q2(si, 0).y;
+    //         z[1][si] = 1;
+    //     }
 
-        auxArrays aux;
-        const double s = std::cos(angle_ / 2);
-        const double ss = s * s;
-        aux.matrix16x36(x, y, z, ss, s);
-        aux.poly20();
+    //     auxArrays aux;
+    //     const double s = std::cos(angle_ / 2);
+    //     const double ss = s * s;
+    //     aux.matrix16x36(x, y, z, ss, s);
+    //     aux.poly20();
 
 
-        auto start = std::chrono::system_clock::now();
-        Mat1d coeffs(1, 21, aux.p);
-        // Cheating modules/core/src/matrix_wrap.cpp:1295
-        Mat2d roots(0, 0);
-        cv::solvePoly(coeffs, roots);
-        int num_roots = roots.total();
-        auto end = std::chrono::system_clock::now();
+    //     auto start = std::chrono::system_clock::now();
+    //     Mat1d coeffs(1, 21, aux.p);
+    //     // Cheating modules/core/src/matrix_wrap.cpp:1295
+    //     Mat2d roots(0, 0);
+    //     cv::solvePoly(coeffs, roots);
+    //     int num_roots = roots.total();
+    //     auto end = std::chrono::system_clock::now();
 
-        Mat1d model;
-        for (auto const& root: roots)
-        {
-            if (std::abs(root[1]) > 1e-10) continue;
+    //     Mat1d model;
+    //     for (auto const& root: roots)
+    //     {
+    //         if (std::abs(root[1]) > 1e-10) continue;
 
-            Vec3d rvec, tvec;
-            complementSolutions(aux, x, y, z, root[0], s, rvec, tvec);
+    //         Vec3d rvec, tvec;
+    //         complementSolutions(aux, x, y, z, root[0], s, rvec, tvec);
 
-            model.push_back(rvec);
-            model.push_back(tvec);
-            model.push_back(rvec);
-            model.push_back(-tvec);
-        }
-        _model.assign(model);
-        model = model.reshape(1);
+    //         model.push_back(rvec);
+    //         model.push_back(tvec);
+    //         model.push_back(rvec);
+    //         model.push_back(-tvec);
+    //     }
+    //     _model.assign(model);
+    //     model = model.reshape(1);
 
-        return model.rows / 2;
-    }
+    //     return model.rows / 2;
+    // }
 };
 
 Mat estimateRelativePose_PC4PRA(double angle,
-        InputArray _points1, InputArray _points2,
+        InputArray _rays1, InputArray _rays2,
         InputArray _cameraMatrix, int method, double prob, double threshold,
         OutputArray _mask)
 {
     // CV_INSTRUMENT_REGION();
-    Mat points1, points2, cameraMatrix;
-    processInputArray(_points1, _points2, _cameraMatrix, threshold,
-            points1, points2, cameraMatrix, threshold);
+    Mat rays1, rays2, cameraMatrix;
+    processInputArray(_rays1, _rays2, rays1, rays2);
+    std::cerr << rays1 << rays2 << std::endl;
 
     Mat models;
     if( method == RANSAC )
         createRANSACPointSetRegistrator(
                 makePtr<PC4PRAEstimatorCallback>(angle), 4, threshold, prob)->run(
-                points1, points2, models, _mask);
+                rays1, rays2, models, _mask);
     else
         createLMeDSPointSetRegistrator(
                 makePtr<PC4PRAEstimatorCallback>(angle), 4, prob)->run(
-                points1, points2, models, _mask);
+                rays1, rays2, models, _mask);
 
     return models;
 }

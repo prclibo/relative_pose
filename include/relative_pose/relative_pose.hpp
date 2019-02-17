@@ -4,6 +4,20 @@
 
 namespace cv
 {
+static void processInputArray(InputArray _rays1, InputArray _rays2,
+        Mat& rays1, Mat& rays2)
+{
+    _rays1.getMat().convertTo(rays1, CV_64F);
+    _rays2.getMat().convertTo(rays2, CV_64F);
+
+    int nrays = rays1.checkVector(3);
+    CV_Assert( nrays >= 0 && rays2.checkVector(3) == nrays &&
+                              rays1.type() == rays2.type());
+
+    // Reshape data to fit opencv ransac function
+    rays1 = rays1.reshape(3, nrays);
+    rays2 = rays2.reshape(3, nrays);
+}
 
 static void processInputArray(InputArray _points1, InputArray _points2,
         InputArray _camera_matrix, double _thresh,
