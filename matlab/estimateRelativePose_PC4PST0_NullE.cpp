@@ -3,7 +3,7 @@
 
 #include "relative_pose/relative_pose.hpp"
 #include "../src/relative_pose/precomp.hpp"
-#include "../test/data_sampler.hpp"
+// #include "../test/data_sampler.hpp"
 
 #define _DO_NOT_EXPORT
 #if defined(_DO_NOT_EXPORT)
@@ -24,7 +24,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     double prob = mxGetScalar(prhs[3]);
     std::cout << "thresh = " << thresh << std::endl;
 
-    estimateRelativePose_PC4PST0_NullE(*points1, *points2, Mat1d::eye(3, 3),
+    estimateRelativePose_PC4PST0_NullE(*points1, *points2,
             RANSAC, prob, thresh, noArray());
 
 }

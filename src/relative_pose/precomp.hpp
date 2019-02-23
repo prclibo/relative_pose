@@ -42,16 +42,17 @@
 #ifndef __OPENCV_PRECOMP_H__
 #define __OPENCV_PRECOMP_H__
 
-#include "opencv2/core/utility.hpp"
+// #include "opencv2/core/utility.hpp"
 
 // #include "opencv2/core/private.hpp"
 
-#include "opencv2/calib3d.hpp"
-#include "opencv2/imgproc.hpp"
-#include "opencv2/features2d.hpp"
+// #include "opencv2/calib3d.hpp"
+// #include "opencv2/imgproc.hpp"
+// #include "opencv2/features2d.hpp"
 
+// #include "opencv2/core/ocl.hpp"
 
-#include "opencv2/core/ocl.hpp"
+#include <opencv2/opencv.hpp>
 
 #define GET_OPTIMIZED(func) (func)
 

@@ -1169,13 +1169,11 @@ public:
 
 Mat estimateRelativePose_PC4PRA(double angle,
         InputArray _rays1, InputArray _rays2,
-        InputArray _cameraMatrix, int method, double prob, double threshold,
-        OutputArray _mask)
+        int method, double prob, double threshold, OutputArray _mask)
 {
     // CV_INSTRUMENT_REGION();
-    Mat rays1, rays2, cameraMatrix;
+    Mat rays1, rays2;
     processInputArray(_rays1, _rays2, rays1, rays2);
-    std::cerr << rays1 << rays2 << std::endl;
 
     Mat models;
     if( method == RANSAC )

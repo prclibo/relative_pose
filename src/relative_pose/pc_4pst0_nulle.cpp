@@ -394,18 +394,18 @@ class PC4PST0NullEEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallb
 {
     int runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const CV_OVERRIDE
     {
-        Mat_<Point2d> q1 = _m1.getMat(), q2 = _m2.getMat();
+        Mat3d q1 = _m1.getMat(), q2 = _m2.getMat();
         CV_Assert(q1.cols == 1 && q2.cols == 1);
 
         double x[NVIEWS][SAMPLE], y[NVIEWS][SAMPLE], z[NVIEWS][SAMPLE];
         for (int si = 0; si < SAMPLE; ++si)
         {
-            x[0][si] = q1(si, 0).x;
-            y[0][si] = q1(si, 0).y;
-            z[0][si] = 1;
-            x[1][si] = q2(si, 0).x;
-            y[1][si] = q2(si, 0).y;
-            z[1][si] = 1;
+            x[0][si] = q1(si, 0)[0];
+            y[0][si] = q1(si, 0)[1];
+            z[0][si] = q1(si, 0)[2];
+            x[1][si] = q2(si, 0)[0];
+            y[1][si] = q2(si, 0)[1];
+            z[1][si] = q2(si, 0)[2];
         }
 
         // std::cerr << "Q" << std::endl;
@@ -460,28 +460,24 @@ class PC4PST0NullEEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallb
 
 
 Mat estimateRelativePose_PC4PST0_NullE(
-        InputArray _points1, InputArray _points2,
-        InputArray _cameraMatrix, int method, double prob, double threshold,
-        OutputArray _mask)
+        InputArray _rays1, InputArray _rays2,
+        int method, double prob, double threshold, OutputArray _mask)
 {
     // CV_INSTRUMENT_REGION();
     auxArrays aux;
-    Mat points1, points2, cameraMatrix;
-    processInputArray(_points1, _points2, _cameraMatrix, threshold,
-            points1, points2, cameraMatrix, threshold);
-    std::cerr << points1.size() << " " << points2.size() <<" processed" << std::endl;
+    Mat rays1, rays2;
+    processInputArray(_rays1, _rays2, rays1, rays2);
 
     Mat models;
     if( method == RANSAC )
         createRANSACPointSetRegistrator(
                 makePtr<PC4PST0NullEEstimatorCallback>(), 4, threshold, prob)->run(
-                points1, points2, models, _mask);
+                rays1, rays2, models, _mask);
     else
         createLMeDSPointSetRegistrator(
                 makePtr<PC4PST0NullEEstimatorCallback>(), 4, prob)->run(
-                points1, points2, models, _mask);
+                rays1, rays2, models, _mask);
 
-    std::cout << models << std::endl;
     return models;
 }
 

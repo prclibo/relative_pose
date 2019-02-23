@@ -4,6 +4,7 @@ add_library(lih_5pt
     5pt-6pt-Li-Hartley/polydet.cc
     5pt-6pt-Li-Hartley/polyquotient.cc
     5pt-6pt-Li-Hartley/sturm.cc)
+target_compile_options(lih_5pt PUBLIC -fPIC)
 
 include_directories(googletest-release-1.8.1/googletest/include)
 include_directories(googletest-release-1.8.1/googletest/)

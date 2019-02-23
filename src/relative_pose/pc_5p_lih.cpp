@@ -21,20 +21,18 @@ public:
 
     int runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const CV_OVERRIDE
     {
-        Mat2d q1 = _m1.getMat(), q2 = _m2.getMat();
-        CV_Assert(q1.type() == CV_64FC2 && q2.type() == CV_64FC2);
+        Mat3d q1 = _m1.getMat(), q2 = _m2.getMat();
         CV_Assert(q1.cols == 1 && q2.cols == 1);
-
 
         double q[5][3], qp[5][3];
         for (int si = 0; si < 5; ++si)
         {
             q[si][0] = q1(si, 0)[0];
             q[si][1] = q1(si, 0)[1];
-            q[si][2] = 1;
+            q[si][2] = q1(si, 0)[2];
             qp[si][0] = q2(si, 0)[0];
             qp[si][1] = q2(si, 0)[1];
-            qp[si][2] = 1;
+            qp[si][2] = q2(si, 0)[2];
         }
 
         double ematrices[10][3][3];
@@ -48,23 +46,21 @@ public:
     }
 };
 
-Mat estimateRelativePose_PC5P_LiH(InputArray _points1, InputArray _points2,
-        InputArray _cameraMatrix, int method, double prob, double threshold,
-        OutputArray _mask)
+Mat estimateRelativePose_PC5P_LiH(InputArray _rays1, InputArray _rays2,
+        int method, double prob, double threshold, OutputArray _mask)
 {
-    Mat points1, points2, cameraMatrix;
-    processInputArray(_points1, _points2, _cameraMatrix, threshold,
-            points1, points2, cameraMatrix, threshold);
+    Mat rays1, rays2;
+    processInputArray(_rays1, _rays2, rays1, rays2);
 
     Mat models;
     if( method == RANSAC )
         createRANSACPointSetRegistrator(
                 makePtr<PC5PLiHEstimatorCallback>(), 5, threshold, prob)->run(
-                points1, points2, models, _mask);
+                rays1, rays2, models, _mask);
     else
         createLMeDSPointSetRegistrator(
                 makePtr<PC5PLiHEstimatorCallback>(), 5, prob)->run(
-                points1, points2, models, _mask);
+                rays1, rays2, models, _mask);
 
     return models;
 

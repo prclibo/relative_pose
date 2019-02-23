@@ -1,7 +1,9 @@
 set(MEX_INCLUDES
-    "-I$<JOIN:$<TARGET_PROPERTY:relative_pose,INCLUDE_DIRECTORIES>, -I>")
+    # "-I$<JOIN:$<TARGET_PROPERTY:relative_pose,INCLUDE_DIRECTORIES>, -I>")
+    "-I${PROJECT_SOURCE_DIR}/include")
 set(MEX_LINKS
-    "-l$<JOIN:$<TARGET_PROPERTY:relative_pose,LINK_LIBRARIES>, -l>")
+    # "-l$<JOIN:$<TARGET_PROPERTY:relative_pose,LINK_LIBRARIES>, -l>")
+    "-lrelative_pose")
 set(MEX_LD
     "-L$<TARGET_FILE_DIR:lih_5pt> -L$<TARGET_FILE_DIR:relative_pose> -L$<JOIN:${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES}, -L>")
 set(SOURCE_FILE
