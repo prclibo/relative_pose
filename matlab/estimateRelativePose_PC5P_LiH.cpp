@@ -21,9 +21,10 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     double thresh = mxGetScalar(prhs[2]);
     double prob = mxGetScalar(prhs[3]);
 
-    Mat E = estimateRelativePose_PC4PST0_NullE(*points1, *points2,
+    Mat E = estimateRelativePose_PC5P_LiH(*points1, *points2,
             RANSAC, prob, thresh, noArray());
 
     assert(nlhs == 1);
     plhs[0] = ocvMxArrayFromMat_double(E);
 }
+
