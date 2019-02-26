@@ -15,7 +15,7 @@ for k = 1:K
     for i = 1:N
         rng(k * N + i);
         
-        noise_std = noise_std_px(k) / 800;
+        noise_std = noise_std_px(k) / 600;
         sample = sampleRays(5, noise_std, 0);
         
         rays1 = sample.q(:, 1:4)';
@@ -43,4 +43,4 @@ end
 quantile(rot_errs_pc5p,0.25,1)
 quantile(rot_errs_pc4pst0,0.25,1)
 quantile(transl_errs_pc5p,0.25,1)
-quantile(rot_errs_pc4pst0,0.25,1)
+quantile(transl_errs_pc4pst0,0.25,1)
