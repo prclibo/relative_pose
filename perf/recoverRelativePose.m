@@ -1,13 +1,14 @@
 function poses = recoverRelativePose(Es, varargin)
 
 parser = inputParser();
+parser.StructExpand = false;
 parser.addRequired('Es', @ismatrix);
 parser.addOptional('rays1', [], @isnumeric);
 parser.addOptional('rays2', [], @isnumeric);
 parser.addParameter('angle', [], @isscalar);
 parser.addParameter('ZeroScrewTransl', false, @islogical);
 parser.addParameter('threshold', 5e-3, @isscalar);
-parser.addParameter('NearestR', [], @ismatrix);
+parser.addParameter('NearestPose', struct([]), @isstruct);
 parser.parse(Es, varargin{:});
 
 W = [0, -1, 0; 1, 0, 0; 0, 0, 1];
@@ -32,9 +33,10 @@ for i = 1:3:size(Es, 1)
 end
 
 best_pose = struct('trace_diff', -inf);
-if ~isempty(parser.Results.NearestR)
-    for i = 1:numel(poses)
-        relative = poses(i).R' * parser.Results.NearestR;
+if ~isempty(parser.Results.NearestPose)
+    % Omit every other mirrored pose
+    for i = 1:2:numel(poses)
+        relative = poses(i).R' * parser.Results.NearestPose.R;
         if trace(relative) > best_pose.trace_diff
             best_pose = poses(i);
             best_pose.trace_diff = trace(relative);
@@ -42,7 +44,9 @@ if ~isempty(parser.Results.NearestR)
     end
     poses = best_pose;
     poses.trace_diff = max(1, min(3, best_pose.trace_diff));
-    poses.angle_diff = acosd((best_pose.trace_diff - 1) / 2);
+    poses.rot_diff = acosd((best_pose.trace_diff - 1) / 2);
+    transl_diff = acosd(dot(poses.t, parser.Results.NearestPose.t));
+    poses.transl_diff = min(transl_diff, 180 - transl_diff);
     return;
 end
 

@@ -19,7 +19,7 @@ static void processInputArray(InputArray _rays1, InputArray _rays2,
     rays2 = rays2.reshape(3, nrays);
 }
 
-static void processInputArray(InputArray _points1, InputArray _points2,
+static void _processInputArray(InputArray _points1, InputArray _points2,
         InputArray _camera_matrix, double _thresh,
         Mat& points1, Mat& points2, Mat camera_matrix, double& thresh)
 {
