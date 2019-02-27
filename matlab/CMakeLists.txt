@@ -3,12 +3,12 @@ include_directories(../third_party/opencv_contrib-4.0.1/modules/matlab/include)
 matlab_add_mex(NAME estimateRelativePose_PC4PST0_NullE
     SRC estimateRelativePose_PC4PST0_NullE.cpp)
 target_link_libraries(estimateRelativePose_PC4PST0_NullE
-    ${OpenCV_LIBS} relative_pose)
+    ${Matlab_LIBRARIES} ${OpenCV_LIBS} relative_pose)
 
 matlab_add_mex(NAME estimateRelativePose_PC5P_LiH
     SRC estimateRelativePose_PC5P_LiH.cpp)
 target_link_libraries(estimateRelativePose_PC5P_LiH
-    ${OpenCV_LIBS} relative_pose)
+    ${Matlab_LIBRARIES} ${OpenCV_LIBS} relative_pose)
 
 
 

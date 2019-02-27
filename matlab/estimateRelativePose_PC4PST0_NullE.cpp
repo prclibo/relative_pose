@@ -1,5 +1,8 @@
 #include "mex.h"
 #include "matrix.h"
+
+LIBMMWMATRIX_PUBLISHED_API_EXTERN_C void *mxGetImagData(const mxArray *pa /* pointer to array */
+                                                        );
 #include <opencv2/matlab/bridge.hpp>
 #include <opencv2/matlab/mxarray.hpp>
 

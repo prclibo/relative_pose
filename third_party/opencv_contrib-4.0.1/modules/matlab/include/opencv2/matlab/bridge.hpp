@@ -58,6 +58,26 @@
 #include <opencv2/video.hpp>
 
 namespace cv {
+
+class StereoBM;
+class StereoSGBM;
+class CLAHE;
+class LineSegmentDetector;
+class AlignMTB;
+class CalibrateDebevec;
+class CalibrateRobertson;
+class DenseOpticalFlow;
+class DualTVL1OpticalFlow;
+class MergeDebevec;
+class MergeMertens;
+class MergeRobertson;
+class Stitcher;
+class Tonemap;
+class TonemapDrago;
+class TonemapDurand;
+class TonemapMantiuk;
+class TonemapReinhard;
+
 namespace bridge {
 
 //! @addtogroup matlab

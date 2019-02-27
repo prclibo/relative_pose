@@ -16,6 +16,8 @@ add_subdirectory(third_party)
 add_subdirectory(src/relative_pose)
 add_subdirectory(test)
 
-find_package(Matlab REQUIRED COMPONENTS MAIN_PROGRAM)
+find_package(Matlab REQUIRED COMPONENTS MAIN_PROGRAM MX_LIBRARY)
+include_directories(${Matlab_INCLUDE_DIRS})
 add_subdirectory(matlab)
-
+message(STATUS "${Matlab_LIBRARIES}")
+message(STATUS "${Matlab_MX_LIBRARY}")
