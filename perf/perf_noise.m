@@ -16,7 +16,7 @@ for k = 1:K
         rng(k * N + i);
         
         noise_std = noise_std_px(k) / 600;
-        sample = sampleRays(5, noise_std, 0);
+        sample = sampleRays(5, noise_std, 0, 0, 0.05);
         
         rays1 = sample.q(:, 1:4)';
         rays2 = sample.qq(:, 1:4)';
