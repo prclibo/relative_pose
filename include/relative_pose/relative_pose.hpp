@@ -73,7 +73,11 @@ Mat estimateRelativePose_PC5P_LiH(InputArray _points1, InputArray _points2,
 void estimateRelativePose_PC5P_LiH(InputArray _points1, InputArray _points2,
         int method, double prob, double threshold,
         OutputArray _rvecs, OutputArray _tvecs, OutputArray _mask);
+
 Mat estimateRelativePose_PC4PST0_NullE(InputArray _points1, InputArray _points2,
+        int method, double prob, double threshold,
+        OutputArray _mask);
+Mat estimateRelativePose_PC3PRAST0_T2D(double angle, InputArray _points1, InputArray _points2,
         int method, double prob, double threshold,
         OutputArray _mask);
 }

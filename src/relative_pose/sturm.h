@@ -1,10 +1,9 @@
 //#define DEBUG_ERR
 
-int const MAXSOLS = 20;
 #define MAXIT 30 // maximal number of iterations
 #define MAXTREE (2*MAXIT + 1) // maximal depth of the isolating tree
 #define ACC 1.0e-12 // root is polished to an approximate accuracy ACC
-#define DEG MAXSOLS // degree of the polynomial
+// #define DEG MAXSOLS // degree of the polynomial
 
 
 

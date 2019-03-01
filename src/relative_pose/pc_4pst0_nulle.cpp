@@ -5,7 +5,6 @@
 #include "precomp.hpp"
 #include "relative_pose_estimator.hpp"
 #include "nullqr.h"
-#include "sturm.h"
 
 int const NVIEWS = 2;
 int const SAMPLE = 4;

@@ -626,7 +626,7 @@ void deepCopyAndTranspose(const cv::Mat& in, matlab::MxArray& out) {
   matlab::conditionalError(static_cast<size_t>(in.channels()) == out.channels(), "Matrices must have the same number of channels");
   std::vector<cv::Mat> channels;
   cv::split(in, channels);
-  for (size_t c = 0; c < out.channels(); ++c) {
+  for (size_t c = 0; c < channels.size() /* XXX out.channels()*/; ++c) {
     cv::Mat_<InputScalar> m;
     // cv::transpose(channels[c], m);
     m = channels[c];

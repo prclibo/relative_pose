@@ -10,6 +10,16 @@ matlab_add_mex(NAME estimateRelativePose_PC5P_LiH
 target_link_libraries(estimateRelativePose_PC5P_LiH
     ${Matlab_LIBRARIES} ${OpenCV_LIBS} relative_pose)
 
+matlab_add_mex(NAME estimateRelativePose_PC4PRA
+    SRC estimateRelativePose_PC4PRA.cpp)
+target_link_libraries(estimateRelativePose_PC4PRA
+    ${Matlab_LIBRARIES} ${OpenCV_LIBS} relative_pose)
+
+matlab_add_mex(NAME estimateRelativePose_PC3PRAST0_T2D
+    SRC estimateRelativePose_PC3PRAST0_T2D.cpp)
+target_link_libraries(estimateRelativePose_PC3PRAST0_T2D
+    ${Matlab_LIBRARIES} ${OpenCV_LIBS} relative_pose)
+
 
 
 # set(MEX_INCLUDES

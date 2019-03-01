@@ -14,7 +14,7 @@ parser.parse(Es, varargin{:});
 W = [0, -1, 0; 1, 0, 0; 0, 0, 1];
 Z = [0, -1, 0; 1, 0, 0; 0, 0, 0];
 
-poses = repmat(struct('R', [], 't', []), size(Es, 1) / 3 * 4, 1);
+poses = repmat(struct('R', [], 't', [], 'E', []), size(Es, 1) / 3 * 4, 1);
 index = 1;
 for i = 1:3:size(Es, 1)
     [U, ~, V] = svd(Es(i:i+2, :));
@@ -26,8 +26,8 @@ for i = 1:3:size(Es, 1)
     t = [-t_x(2, 3); t_x(1, 3); -t_x(1, 2)];
 %     disp([Rs{1}, Rs{2}]);
     for j = 1:2
-        poses(index) = struct('R', Rs{j}, 't', t);
-        poses(index + 1) = struct('R', Rs{j}, 't', -t);
+        poses(index) = struct('R', Rs{j}, 't', t, 'E', Es(i:i+2, :));
+        poses(index + 1) = struct('R', Rs{j}, 't', -t, 'E', Es(i:i+2, :));
         index = index + 2;
     end
 end
@@ -39,6 +39,7 @@ if ~isempty(parser.Results.NearestPose)
         relative = poses(i).R' * parser.Results.NearestPose.R;
         if trace(relative) > best_pose.trace_diff
             best_pose = poses(i);
+            best_pose.i = (i + 1) / 2;
             best_pose.trace_diff = trace(relative);
         end
     end

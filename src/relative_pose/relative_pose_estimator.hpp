@@ -37,7 +37,6 @@ public:
         errs.convertTo(errs, CV_32F);
         errs = errs.t();
         _err.assign(errs);
-
     }
 };
 

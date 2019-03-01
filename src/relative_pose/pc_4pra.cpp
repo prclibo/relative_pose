@@ -4,6 +4,9 @@
 #include "precomp.hpp"
 #include "relative_pose_estimator.hpp"
 #include "nullqr.h"
+
+int const DEG = 20;
+int const MAXSOLS = 20;
 #include "sturm.h"
 
 int const NVIEWS = 2;
@@ -988,11 +991,6 @@ int solver4p2v (const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
         // normalize translation vectors so that ||t2|| = 1
         const double n = sqrt(pow(t[0][0], 2) + pow(t[0][1], 2) + pow(t[0][2], 2));
 
-        // double angle = std::acos(s) * 2;
-        // rbuf[k * 3 + 0] = u / b * angle;
-        // rbuf[k * 3 + 1] = v / b * angle;
-        // rbuf[k * 3 + 2] = w / b * angle;
-
         tbuf[k * 3 + 0] = t[0][0] / n;
         tbuf[k * 3 + 1] = t[0][1] / n;
         tbuf[k * 3 + 2] = t[0][2] / n;
@@ -1012,69 +1010,69 @@ class PC4PRAEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallback
 protected:
     float angle_, dist_thresh_;
 
-    void complementSolutions(auxArrays const& aux,
-            const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
-            const double z[NVIEWS][SAMPLE], double w, double s,
-            Vec3d& rvec, Vec3d& tvec) const
-    {
-        Mat1d D1(3, 4);
-        const int dd[4] = {4, 5, 5, 6};
-        for (int j = 0; j < 4; ++j)
-        {
-            const int d1 = dd[j];
-            for (int i = 0; i < 3; ++i)
-            {
-                D1[i][j] = aux.D[i][j][d1];
-                for (int d = d1 - 1; d >= 0; --d)
-                    D1[i][j] = D1[i][j] * w + aux.D[i][j][d];
-            }
-        }
+    // void complementSolutions(auxArrays const& aux,
+    //         const double x[NVIEWS][SAMPLE], const double y[NVIEWS][SAMPLE],
+    //         const double z[NVIEWS][SAMPLE], double w, double s,
+    //         Vec3d& rvec, Vec3d& tvec) const
+    // {
+    //     Mat1d D1(3, 4);
+    //     const int dd[4] = {4, 5, 5, 6};
+    //     for (int j = 0; j < 4; ++j)
+    //     {
+    //         const int d1 = dd[j];
+    //         for (int i = 0; i < 3; ++i)
+    //         {
+    //             D1[i][j] = aux.D[i][j][d1];
+    //             for (int d = d1 - 1; d >= 0; --d)
+    //                 D1[i][j] = D1[i][j] * w + aux.D[i][j][d];
+    //         }
+    //     }
 
-        double ss = s * s;
-        Vec4d q;
-        SVD::solveZ(D1, q);
-        double u = q[1] / q[3], v = q[2] / q[3];
-        double fac = std::sqrt((1.0 - ss) / (u*u + v*v + w*w));
-        u *= fac; v *= fac; w *= fac;
+    //     double ss = s * s;
+    //     Vec4d q;
+    //     SVD::solveZ(D1, q);
+    //     double u = q[1] / q[3], v = q[2] / q[3];
+    //     double fac = std::sqrt((1.0 - ss) / (u*u + v*v + w*w));
+    //     u *= fac; v *= fac; w *= fac;
 
-        // compute rotation matrix
-        // FIXME(li): Evgeniy's 4p2v code seems using transposed
-        // quaternion<->rotation matrix representation instead of the
-        // wikipedia convention.
-        // https://math.stackexchange.com/questions/383754/are-there-different-conventions-for-representing-rotations-as-quaternions.
-        const double u2 = 2*u, v2 = 2*v, w2 = 2*w;
-        const double uu2 = u*u2, vv2 = v*v2, ww2 = w*w2, ss2 = 2*ss;
-        const double uv2 = u2*v, vw2 = v2*w, uw2 = u2*w, us2 = u2*s, vs2 = v2*s, ws2 = w2*s;
+    //     // compute rotation matrix
+    //     // FIXME(li): Evgeniy's 4p2v code seems using transposed
+    //     // quaternion<->rotation matrix representation instead of the
+    //     // wikipedia convention.
+    //     // https://math.stackexchange.com/questions/383754/are-there-different-conventions-for-representing-rotations-as-quaternions.
+    //     const double u2 = 2*u, v2 = 2*v, w2 = 2*w;
+    //     const double uu2 = u*u2, vv2 = v*v2, ww2 = w*w2, ss2 = 2*ss;
+    //     const double uv2 = u2*v, vw2 = v2*w, uw2 = u2*w, us2 = u2*s, vs2 = v2*s, ws2 = w2*s;
 
-        double R[9];
-        R[0] = uu2 + ss2 - 1;   R[1] = ws2 + uv2;       R[2] = uw2 - vs2;
-        R[3] = uv2 - ws2;       R[4] = vv2 + ss2 - 1;   R[5] = us2 + vw2;
-        R[6] = vs2 + uw2;       R[7] = vw2 - us2;       R[8] = ww2 + ss2 - 1;
-        const double t1 = R[6]*x[0][0] + R[7]*y[0][0] + R[8]*z[0][0];
-        const double t2 = R[3]*x[0][0] + R[4]*y[0][0] + R[5]*z[0][0];
-        const double t3 = R[0]*x[0][0] + R[1]*y[0][0] + R[2]*z[0][0];
-        const double t4 = R[6]*x[0][1] + R[7]*y[0][1] + R[8]*z[0][1];
-        const double t5 = R[3]*x[0][1] + R[4]*y[0][1] + R[5]*z[0][1];
-        const double t6 = R[0]*x[0][1] + R[1]*y[0][1] + R[2]*z[0][1];
-        Mat1d S(2, 3);
-        Vec3d t;
-        S[0][0] = t2*z[1][0] - t1*y[1][0];
-        S[0][1] = t1*x[1][0] - t3*z[1][0];
-        S[0][2] = t3*y[1][0] - t2*x[1][0];
-        S[1][0] = t5*z[1][1] - t4*y[1][1];
-        S[1][1] = t4*x[1][1] - t6*z[1][1];
-        S[1][2] = t6*y[1][1] - t5*x[1][1];
+    //     double R[9];
+    //     R[0] = uu2 + ss2 - 1;   R[1] = ws2 + uv2;       R[2] = uw2 - vs2;
+    //     R[3] = uv2 - ws2;       R[4] = vv2 + ss2 - 1;   R[5] = us2 + vw2;
+    //     R[6] = vs2 + uw2;       R[7] = vw2 - us2;       R[8] = ww2 + ss2 - 1;
+    //     const double t1 = R[6]*x[0][0] + R[7]*y[0][0] + R[8]*z[0][0];
+    //     const double t2 = R[3]*x[0][0] + R[4]*y[0][0] + R[5]*z[0][0];
+    //     const double t3 = R[0]*x[0][0] + R[1]*y[0][0] + R[2]*z[0][0];
+    //     const double t4 = R[6]*x[0][1] + R[7]*y[0][1] + R[8]*z[0][1];
+    //     const double t5 = R[3]*x[0][1] + R[4]*y[0][1] + R[5]*z[0][1];
+    //     const double t6 = R[0]*x[0][1] + R[1]*y[0][1] + R[2]*z[0][1];
+    //     Mat1d S(2, 3);
+    //     Vec3d t;
+    //     S[0][0] = t2*z[1][0] - t1*y[1][0];
+    //     S[0][1] = t1*x[1][0] - t3*z[1][0];
+    //     S[0][2] = t3*y[1][0] - t2*x[1][0];
+    //     S[1][0] = t5*z[1][1] - t4*y[1][1];
+    //     S[1][1] = t4*x[1][1] - t6*z[1][1];
+    //     S[1][2] = t6*y[1][1] - t5*x[1][1];
 
-        rvec = {u, v, w};
-        rvec *= angle_ / std::sqrt(1.0 - ss);
-        // FIXME(li): Evgeniy's 4p2v code seems using transposed
-        // quaternion<->rotation matrix representation instead of the
-        // wikipedia convention.
-        // https://math.stackexchange.com/questions/383754/are-there-different-conventions-for-representing-rotations-as-quaternions.
-        rvec *= -1;
+    //     rvec = {u, v, w};
+    //     rvec *= angle_ / std::sqrt(1.0 - ss);
+    //     // FIXME(li): Evgeniy's 4p2v code seems using transposed
+    //     // quaternion<->rotation matrix representation instead of the
+    //     // wikipedia convention.
+    //     // https://math.stackexchange.com/questions/383754/are-there-different-conventions-for-representing-rotations-as-quaternions.
+    //     rvec *= -1;
 
-        SVD::solveZ(S, tvec);
-    }
+    //     SVD::solveZ(S, tvec);
+    // }
 
 public:
     PC4PRAEstimatorCallback(float angle, float dist_thresh = 100)
