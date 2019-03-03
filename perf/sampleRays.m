@@ -11,7 +11,7 @@ axis = normc([randn() * axis_turb; 1; randn() * axis_turb]);
 % axis = [0; 1; 0];
 
 [u, s] = deal(axis .* sin(angle / 2), cos(angle / 2));
-angle = angle * (1 + randn() * angle_turb);
+angle = angle + randn() * angle_turb;
 
 R = 2 * (u * transpose(u) - s * skew(u)) + (s * s - transpose(u) * u) * eye(3);
 

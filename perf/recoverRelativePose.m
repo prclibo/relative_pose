@@ -44,9 +44,10 @@ if ~isempty(parser.Results.NearestPose)
         end
     end
     poses = best_pose;
-    poses.trace_diff = max(1, min(3, best_pose.trace_diff));
-    poses.rot_diff = acosd((best_pose.trace_diff - 1) / 2);
-    transl_diff = acosd(dot(poses.t, parser.Results.NearestPose.t));
+    cosine = max(-1, min(1, (poses.trace_diff - 1) / 2));
+    poses.rot_diff = acosd(cosine);
+    cosine = max(-1, min(1, dot(poses.t, parser.Results.NearestPose.t)));
+    transl_diff = acosd(cosine);
     poses.transl_diff = min(transl_diff, 180 - transl_diff);
     return;
 end
