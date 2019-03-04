@@ -53,7 +53,7 @@ int main()
             {
                 cv::Mat rvecs, tvecs, mask;
                 auto start = std::chrono::system_clock::now();
-                Mat E = estimateRelativePose_PC4PST0_NullE(
+                Mat E = estimateRelativePose_PC4PST0_NullE_Poly(
                         image_rays1, image_rays2,
                         cv::RANSAC, 0.99, 1e-2, mask);
                 auto end = std::chrono::system_clock::now();

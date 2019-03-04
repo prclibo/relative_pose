@@ -1,3 +1,5 @@
+#include <cassert>
+#include <cmath>
 
 // find the basis of the null space of an M x N matrix A (M < N) using specifically tailored QR factorization,
 // result is N - M N-vectors Q
