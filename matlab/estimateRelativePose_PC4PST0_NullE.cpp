@@ -36,7 +36,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     double prob = inputs.at(2).toDouble(),
            thresh = inputs.at(3).toDouble();
 
-    Mat E = estimateRelativePose_PC4PST0_NullE(rays1, rays2,
+    Mat E = estimateRelativePose_PC4PST0_NullE_Poly(rays1, rays2,
             RANSAC, prob, thresh, noArray());
 
     bridge::Bridge output;

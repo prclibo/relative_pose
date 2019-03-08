@@ -122,20 +122,20 @@ TEST_F(ScrewPlanarMotionTest, PC_5P_LiH_RANSAC_StdVectorPoint3d)
 
 // ---------------------------------------------------------------------------
 
-TEST_F(ScrewPlanarMotionTest, PC_4PST0_NullE_Minimal_StdVectorPoint3d)
+TEST_F(ScrewPlanarMotionTest, PC_4PST0_NullE_Eig_Minimal_StdVectorPoint3d)
 {
     setup(4, 0);
-    E_ = estimateRelativePose_PC4PST0_NullE(
+    E_ = estimateRelativePose_PC4PST0_NullE_Eig(
             image_rays1_, image_rays2_, RANSAC, 0.99, RAY_ERR_THRESH, mask_);
 
     expectEqualE(E_, E0_);
     EXPECT_EQ(countNonZero(mask_), mask_.total());
 }
 
-TEST_F(ScrewPlanarMotionTest, PC_4PST0_NullE_LiH_RANSAC_StdVectorPoint3d)
+TEST_F(ScrewPlanarMotionTest, PC_4PST0_NullE_Eig_RANSAC_StdVectorPoint3d)
 {
     setup(1000, 0.6);
-    E_ = estimateRelativePose_PC4PST0_NullE(
+    E_ = estimateRelativePose_PC4PST0_NullE_Eig(
             image_rays1_, image_rays2_, RANSAC, 0.99, RAY_ERR_THRESH, mask_);
     expectEqualE(E_, E0_);
 }

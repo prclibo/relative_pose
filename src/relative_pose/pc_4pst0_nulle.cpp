@@ -10,6 +10,9 @@ int const NVIEWS = 2;
 int const SAMPLE = 4;
 double const IMAGE_THRESH = 1e-5;
 
+namespace pc_4pst0_nulle_eig
+{
+
 struct auxArrays
 {
     double A[10][20], C[10][10];
@@ -385,9 +388,7 @@ void auxArrays::nulle(const double x[NVIEWS][SAMPLE],
     nullQR<5, 9>(Q, EE);
 }
 
-
-namespace cv
-{
+using namespace cv;
 
 class PC4PST0NullEEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallback
 {
@@ -456,29 +457,32 @@ class PC4PST0NullEEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallb
     }
 };
 
+}
 
+namespace cv
+{
 
-Mat estimateRelativePose_PC4PST0_NullE(
+Mat estimateRelativePose_PC4PST0_NullE_Eig(
         InputArray _rays1, InputArray _rays2,
         int method, double prob, double threshold, OutputArray _mask)
 {
     // CV_INSTRUMENT_REGION();
-    auxArrays aux;
     Mat rays1, rays2;
     processInputArray(_rays1, _rays2, rays1, rays2);
 
     Mat models;
     if( method == RANSAC )
         createRANSACPointSetRegistrator(
-                makePtr<PC4PST0NullEEstimatorCallback>(), 4, threshold, prob)->run(
+                makePtr<pc_4pst0_nulle_eig::PC4PST0NullEEstimatorCallback>(), 4, threshold, prob)->run(
                 rays1, rays2, models, _mask);
     else
         createLMeDSPointSetRegistrator(
-                makePtr<PC4PST0NullEEstimatorCallback>(), 4, prob)->run(
+                makePtr<pc_4pst0_nulle_eig::PC4PST0NullEEstimatorCallback>(), 4, prob)->run(
                 rays1, rays2, models, _mask);
 
     return models;
 }
 
 }
+
 
