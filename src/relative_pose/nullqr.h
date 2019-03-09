@@ -1,5 +1,8 @@
 #include <cassert>
 #include <cmath>
+#include <cstring>
+
+double const RREF_ZERO_THRESH = 1e-12;
 
 // find the basis of the null space of an M x N matrix A (M < N) using specifically tailored QR factorization,
 // result is N - M N-vectors Q
@@ -76,10 +79,63 @@ static void nullQR (double A[M][N], double Q[N - M][N]) // matrix A changes duri
 } // end nullQR()
 
 
+// Specifically tailored Gauss-Jordan elimination with partial pivoting on M x N matrix B
+template <const int N, const int M>
+static int rref(double B[N][M])
+{
+    int piv_col = 0, piv_cols[N];
+    for (int i = 0; i < N; ++i)
+    {
+        double piv = B[i][piv_col];
+        int piv_row = i;
+        while (true)
+        {
+            for (int j = i + 1; j < N; ++j)
+            {
+                if (std::abs(B[j][piv_col]) > std::abs(piv))
+                {
+                    piv = B[j][piv_col];
+                    piv_row = j;
+                }
+            }
+            if (std::abs(piv) > RREF_ZERO_THRESH || piv_col >= M) break;
+            else ++piv_col;
+        }
+        piv_cols[i] = piv_col;
+        if (piv_col >= M) break;
+
+        double inv_piv = 1.0 / piv;
+        for (int j = 0; j < M; ++j)
+        {
+            std::swap(B[i][j], B[piv_row][j]);
+            B[i][j] *= inv_piv;
+        }
+
+        for (int j = i + 1; j < N; ++j)
+        {
+            double fac = B[j][piv_col];
+            for (int k = 0; k < M; ++k)
+                B[j][k] -= B[i][k] * fac;
+        }
+        ++piv_col;
+    }
+    int ri = 0;
+    for (; ri < N; ++ri)
+    {
+        if (piv_cols[ri] >= M) break;
+        for (int j = 0; j < ri; ++j)
+        {
+            double fac = B[j][piv_cols[ri]];
+            for (int k = 0; k < M; ++k)
+                B[j][k] -= B[ri][k] * fac;
+        }
+    }
+    return ri;
+}
 
 // Specifically tailored Gauss-Jordan elimination with partial pivoting on M x N matrix B
 template <const int M, const int N>
-static void rref(double B[M][N])
+static void _rref(double B[M][N])
 {
     for (int i = 0; i < M; ++i)
     { // index i numbers first M columns of B
@@ -111,10 +167,11 @@ static void rref(double B[M][N])
             for (int j = 0; j < N; ++j)
                 B[k][j] -= B[i][j] * fac;
         }
+
     }
     for (int i = M - 1; i >= 0; --i)
     {
-        assert(std::abs(B[i][i]) > 1e-12);
+        assert(std::abs(B[i][i]) > RREF_ZERO_THRESH);
         for (int k = 0; k < i; ++k)
         {
             double fac = B[k][i] / B[i][i];
@@ -163,3 +220,44 @@ static void gj(double B[M][N])
 
 } // end gj()
 
+        // compute rotation matrix
+static void complementRt(double u, double v, double w, double s,
+        double q[][3], double qq[][3], double rmat[9], double tvec[3])
+{
+        const double u2 = 2*u, v2 = 2*v, w2 = 2*w, ss = s * s;
+        const double uu2 = u*u2, vv2 = v*v2, ww2 = w*w2, ss2 = 2*ss;
+        const double uv2 = u2*v, vw2 = v2*w, uw2 = u2*w, us2 = u2*s, vs2 = v2*s, ws2 = w2*s;
+
+        rmat[0] = uu2 + ss2 - 1;
+        rmat[1] = ws2 + uv2;
+        rmat[2] = uw2 - vs2;
+        rmat[3] = uv2 - ws2;
+        rmat[4] = vv2 + ss2 - 1;
+        rmat[5] = us2 + vw2;
+        rmat[6] = vs2 + uw2;
+        rmat[7] = vw2 - us2;
+        rmat[8] = ww2 + ss2 - 1;
+
+        // compute translation vector t
+        double S[2][3], t[1][3];
+        const double t1 = rmat[6]*q[0][0] + rmat[7]*q[0][1] + rmat[8]*q[0][2];
+        const double t2 = rmat[3]*q[0][0] + rmat[4]*q[0][1] + rmat[5]*q[0][2];
+        const double t3 = rmat[0]*q[0][0] + rmat[1]*q[0][1] + rmat[2]*q[0][2];
+        const double t4 = rmat[6]*q[1][0] + rmat[7]*q[1][1] + rmat[8]*q[1][2];
+        const double t5 = rmat[3]*q[1][0] + rmat[4]*q[1][1] + rmat[5]*q[1][2];
+        const double t6 = rmat[0]*q[1][0] + rmat[1]*q[1][1] + rmat[2]*q[1][2];
+        S[0][0] = t2*qq[0][2] - t1*qq[0][1];
+        S[0][1] = t1*qq[0][0] - t3*qq[0][2];
+        S[0][2] = t3*qq[0][1] - t2*qq[0][0];
+        S[1][0] = t5*qq[1][2] - t4*qq[1][1];
+        S[1][1] = t4*qq[1][0] - t6*qq[1][2];
+        S[1][2] = t6*qq[1][1] - t5*qq[1][0];
+        nullQR<2, 3>(S, t);
+
+        // normalize translation vectors so that ||t2|| = 1
+        const double n = sqrt(pow(t[0][0], 2) + pow(t[0][1], 2) + pow(t[0][2], 2));
+
+        tvec[0] = t[0][0] / n;
+        tvec[1] = t[0][1] / n;
+        tvec[2] = t[0][2] / n;
+}

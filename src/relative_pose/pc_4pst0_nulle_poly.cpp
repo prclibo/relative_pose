@@ -897,6 +897,7 @@ class PC4PST0NullEEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallb
         //     std::cerr << x[1][si] << " " << y[1][si] << " " << z[1][si] << " " << std::endl;
 
         double EE[4][9], Z[11], C[9][19];
+        std::fill_n(&C[0][0], 9 * 19, 0.0);
         nulle(x, y, z, EE);
 
         helper(EE, C, Z);

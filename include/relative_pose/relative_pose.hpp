@@ -84,5 +84,8 @@ Mat estimateRelativePose_PC4PST0_NullE_Poly(InputArray _points1, InputArray _poi
 Mat estimateRelativePose_PC3PRAST0_T2D(double angle, InputArray _points1, InputArray _points2,
         int method, double prob, double threshold,
         OutputArray _mask);
+Mat estimateRelativePose_PC3PRAST0_T2D_Poly(double angle, InputArray _points1, InputArray _points2,
+        int method, double prob, double threshold,
+        OutputArray _mask);
 }
 #endif
