@@ -35,11 +35,22 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     double prob = inputs.at(2).toDouble(),
            thresh = inputs.at(3).toDouble();
 
+    Mat mask;
     Mat E = estimateRelativePose_PC5P_LiH(rays1, rays2,
-            RANSAC, prob, thresh, noArray());
+            RANSAC, prob, thresh, mask);
 
-    bridge::Bridge output;
-    output = E;
-    plhs[0] = output.toMxArray().releaseOwnership();
+    if (nrhs > 0)
+    {
+        bridge::Bridge output;
+        output = E;
+        plhs[0] = output.toMxArray().releaseOwnership();
+    }
+    if (nrhs > 1)
+    {
+        bridge::Bridge output;
+        output = mask;
+        plhs[1] = output.toMxArray().releaseOwnership();
+    }
+
 }
 

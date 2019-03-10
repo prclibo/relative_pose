@@ -7,6 +7,7 @@ namespace cv
 static void processInputArray(InputArray _rays1, InputArray _rays2,
         Mat& rays1, Mat& rays2)
 {
+    srand(23);
     _rays1.getMat().convertTo(rays1, CV_64F);
     _rays2.getMat().convertTo(rays2, CV_64F);
 
@@ -87,5 +88,9 @@ Mat estimateRelativePose_PC3PRAST0_T2D(double angle, InputArray _points1, InputA
 Mat estimateRelativePose_PC3PRAST0_T2D_Poly(double angle, InputArray _points1, InputArray _points2,
         int method, double prob, double threshold,
         OutputArray _mask);
+
+Mat estimateRelativePose_PC2POT(
+        InputArray _rays1, InputArray _rays2,
+        int method, double prob, double threshold, OutputArray _mask);
 }
 #endif

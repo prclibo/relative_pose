@@ -20,6 +20,10 @@ matlab_add_mex(NAME estimateRelativePose_PC3PRAST0_T2D
 target_link_libraries(estimateRelativePose_PC3PRAST0_T2D
     ${Matlab_LIBRARIES} ${OpenCV_LIBS} relative_pose)
 
+matlab_add_mex(NAME estimateRelativePose_PC2POT
+    SRC estimateRelativePose_PC2POT.cpp)
+target_link_libraries(estimateRelativePose_PC2POT
+    ${Matlab_LIBRARIES} ${OpenCV_LIBS} relative_pose)
 
 
 # set(MEX_INCLUDES

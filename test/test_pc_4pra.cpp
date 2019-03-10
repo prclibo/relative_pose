@@ -32,13 +32,14 @@ protected:
 void expectEqualE(Mat E, Mat E0)
 {
     assert(E.type() == CV_64F && E0.type() == CV_64F);
-    E0 /= E0.at<double>(2, 2);
+    E0 /= norm(E0);
     double err = std::numeric_limits<double>::max();
     for (int r = 0; r < E.rows; r += 3)
     {
         Mat E1 = E.rowRange(r, r + 3);
-        E1 /= E1.at<double>(2, 2);
+        E1 /= norm(E1);
         err = std::min(err, norm(E0, E1) / norm(E0) / norm(E1));
+        err = std::min(err, norm(E0, -E1) / norm(E0) / norm(E1));
     }
     EXPECT_LT(err, E_ERR_THRESH);
 }
@@ -180,6 +181,60 @@ TEST_F(ScrewPlanarMotionTest, PC_4PST0_NullE_Poly_RANSAC_StdVectorPoint3d)
 
     expectEqualE(E_, E0_);
 }
+
+class TranslationalMotionTest: public ::testing::Test
+{
+protected:
+    void setup(int num_rays, float outlier_rate)
+    {
+        DataSampler sampler;
+        sampler.angle_bound = 0;
+        sampler.outlier_rate = outlier_rate;
+        sampler.zero_screw_transl = true;
+        sampler.sampleRays(num_rays, rvec_, tvec_, image_rays1_, image_rays2_);
+
+        Rodrigues(rvec_, rmat_);
+        E0_ = skew(tvec_) * rmat_;
+
+        camera_matrix = sampler.cameraMatrix();
+    }
+    std::vector<Point3d> image_rays1_, image_rays2_;
+    Vec3d rvec_, tvec_;
+    Mat rmat_, E0_, E_, camera_matrix, mask_;
+};
+
+TEST_F(TranslationalMotionTest, PC_4PRA_Minimal_StdVectorPoint3d)
+{
+    setup(4, 0);
+    E_ = estimateRelativePose_PC4PRA(norm(rvec_),
+            image_rays1_, image_rays2_, RANSAC, 0.99, RAY_ERR_THRESH, mask_);
+
+    expectEqualE(E_, E0_);
+    EXPECT_EQ(countNonZero(mask_), mask_.total());
+}
+
+TEST_F(TranslationalMotionTest, PC_4PST0_NullE_Poly_Minimal_StdVectorPoint3d)
+{
+    setup(4, 0);
+    E_ = estimateRelativePose_PC4PST0_NullE_Poly(
+            image_rays1_, image_rays2_, RANSAC, 0.99, RAY_ERR_THRESH, mask_);
+
+    expectEqualE(E_, E0_);
+    EXPECT_EQ(countNonZero(mask_), mask_.total());
+
+}
+
+TEST_F(TranslationalMotionTest, PC_2POT_Minimal_StdVectorPoint3d)
+{
+    setup(4, 0);
+    E_ = estimateRelativePose_PC2POT(
+            image_rays1_, image_rays2_, RANSAC, 0.99, RAY_ERR_THRESH, mask_);
+
+    expectEqualE(E_, E0_);
+    EXPECT_EQ(countNonZero(mask_), mask_.total());
+
+}
+
 
 
 // TEST(PC_4PST0_NullE, Minimal)

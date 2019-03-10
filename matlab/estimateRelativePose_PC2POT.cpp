@@ -26,7 +26,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             "Input 2 or 3 is not scalar");
 
     matlab::ArgumentParser parser("what");
-    parser.addVariant("estimateRelativePose_PC4PST0_NullE", 4, 0);
+    parser.addVariant("estimateRelativePose_PC2POT", 4, 0);
 
     matlab::MxArrayVector reordered = parser.parse(raw);
     bridge::BridgeVector inputs(reordered.begin(), reordered.end());
@@ -37,7 +37,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
            thresh = inputs.at(3).toDouble();
 
     Mat mask;
-    Mat E = estimateRelativePose_PC4PST0_NullE_Poly(rays1, rays2,
+    Mat E = estimateRelativePose_PC2POT(rays1, rays2,
             RANSAC, prob, thresh, mask);
 
     if (nrhs > 0)
@@ -70,3 +70,4 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 //     assert(nlhs == 1);
 //     plhs[0] = ocvMxArrayFromMat_double(E);
 // }
+

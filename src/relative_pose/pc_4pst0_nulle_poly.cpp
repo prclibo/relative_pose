@@ -993,8 +993,10 @@ class PC4PST0NullEEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallb
             double w1 = w[0][2] / w[0][0], w0 = w[0][1] / w[0][0];
             Mat1d xyz1(1, 4);
             xyz1 << w0, w1, w2[i], 1;
-            Mat1d E = xyz1 * Evec;
-            models.push_back(E.reshape(1, 3));
+            Mat E = xyz1 * Evec;
+            E = E.reshape(1, 3);
+
+            models.push_back(E);
         }
 
         _model.assign(models);

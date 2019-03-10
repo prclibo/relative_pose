@@ -1426,11 +1426,13 @@ public:
         Mat1d model;
         for (int i = 0; i < ns; ++i)
         {
+            if (std::abs(u2[i]) > 1) continue;
             double Y[3][3];
             finalize(C, u2[i], Y);
 
             nullQR<2, 3>(Y, u);
             double u1 = u[0][2] / u[0][0], u0 = u[0][1] / u[0][0];
+            if (std::abs(u1) > 1 || std::abs(u0) > 1) continue;
 
             double rbuf[9], tbuf[3];
             complementRt(u0, u1, u2[i], s, q, qq, rbuf, tbuf);
