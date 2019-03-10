@@ -463,7 +463,7 @@ class PC4PST0NullEEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallb
 
 namespace cv
 {
-/*
+
 int RANSACUpdateNumIters( double p, double ep, int modelPoints, int maxIters )
 {
     if( modelPoints <= 0 )
@@ -514,7 +514,13 @@ public:
             Mat R1, R2, t;
             decomposeEssentialMat(E, R1, R2, t);
             t *= (t.at<double>(2) > 0 ? 1 : -1);
+            std::cerr << "---------------" << std::endl;
+            if (trace(R1)[0] > trace(R2)[0])
+                std::cerr << "R = " << R1 << std::endl;
+            else std::cerr << "R = " << R2 << std::endl;
             std::cerr << "t = " << t.t() << " " << trace(R1)[0] << " " << trace(R2)[0] << " " << nz << std::endl;
+            if (nz >= 98)
+                std::cerr << "err = " << err << std::endl;
         }
         return nz;
     }
@@ -674,7 +680,7 @@ public:
     double confidence;
     int maxIters;
 };
-*/
+
 Mat estimateRelativePose_PC4PST0_NullE_Eig(
         InputArray _rays1, InputArray _rays2,
         int method, double prob, double threshold, OutputArray _mask)
@@ -685,14 +691,14 @@ Mat estimateRelativePose_PC4PST0_NullE_Eig(
 
     Mat models;
     if( method == RANSAC )
-        createRANSACPointSetRegistrator(
-                makePtr<pc_4pst0_nulle_eig::PC4PST0NullEEstimatorCallback>(), 4, threshold, prob)->run(
-                rays1, rays2, models, _mask);
-    // {
-    //     auto reg = RANSACPointSetRegistrator(
-    //             makePtr<pc_4pst0_nulle_eig::PC4PST0NullEEstimatorCallback>(), 4, threshold, prob);
-    //     reg.run(rays1, rays2, models, _mask);
-    // }
+    //     createRANSACPointSetRegistrator(
+    //             makePtr<pc_4pst0_nulle_eig::PC4PST0NullEEstimatorCallback>(), 4, threshold, prob)->run(
+    //             rays1, rays2, models, _mask);
+    {
+        auto reg = RANSACPointSetRegistrator(
+                makePtr<pc_4pst0_nulle_eig::PC4PST0NullEEstimatorCallback>(), 4, threshold, prob);
+        reg.run(rays1, rays2, models, _mask);
+    }
     else
         createLMeDSPointSetRegistrator(
                 makePtr<pc_4pst0_nulle_eig::PC4PST0NullEEstimatorCallback>(), 4, prob)->run(

@@ -34,6 +34,7 @@ class PC2POTNullEEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallba
 
 namespace cv
 {
+/*
 int RANSACUpdateNumIters( double p, double ep, int modelPoints, int maxIters )
 {
     if( modelPoints <= 0 )
@@ -236,6 +237,7 @@ public:
     double confidence;
     int maxIters;
 };
+*/
 
 Mat estimateRelativePose_PC2POT(
         InputArray _rays1, InputArray _rays2,
@@ -247,14 +249,14 @@ Mat estimateRelativePose_PC2POT(
 
     Mat models;
     if( method == RANSAC )
-        // createRANSACPointSetRegistrator(
-        //         makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 2, threshold, prob)->run(
-        //         rays1, rays2, models, _mask);
-    {
-        auto reg = RANSACPointSetRegistrator(
-                makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 4, threshold, prob);
-        reg.run(rays1, rays2, models, _mask);
-    }
+        createRANSACPointSetRegistrator(
+                makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 2, threshold, prob)->run(
+                rays1, rays2, models, _mask);
+    // {
+    //     auto reg = RANSACPointSetRegistrator(
+    //             makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 4, threshold, prob);
+    //     reg.run(rays1, rays2, models, _mask);
+    // }
     else
         createLMeDSPointSetRegistrator(
                 makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 2, prob)->run(
