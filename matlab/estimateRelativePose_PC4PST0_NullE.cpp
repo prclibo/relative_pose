@@ -37,7 +37,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
            thresh = inputs.at(3).toDouble();
 
     Mat mask;
-    Mat E = estimateRelativePose_PC4PST0_NullE_Eig(rays1, rays2,
+    Mat E = estimateRelativePose_PC4PST0_NullE_Poly(rays1, rays2,
             RANSAC, prob, thresh, mask);
 
     if (nrhs > 0)

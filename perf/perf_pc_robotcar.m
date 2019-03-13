@@ -19,7 +19,7 @@ consec_interv = 5;
 timestamps = load(timestamp_file);
 timestamps = timestamps(1:consec_interv:end, 1)';
 [fx, fy, cx, cy, G_camera_image, LUT] = ReadCameraModel(image_dir, model_dir);
-thresh = 6 / fx;
+thresh = 4 / fx;
 ins_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/ins.txt']));
 stereo_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/stereo.txt']));
 camera_ins = ins_extrs \ stereo_extrs * G_camera_image;
@@ -34,96 +34,114 @@ thresh = thresh * scale;
 lower_clip = lower_clip * scale;
 
 % timestamps = timestamps(197:200);
-timestamps = timestamps(52 + 75:250);
+timestamps = timestamps(20:end - 20);
 
-t_err_5p = nan(numel(timestamps), 1);
-t_err_4pst0 = nan(numel(timestamps), 1);
-rel_5p = cell(numel(timestamps), 1);
-rel_4pst0 = cell(numel(timestamps), 1);
+ins_poses = InterpolatePoses(ins_file, timestamps, timestamps(1));
+vo_poses = RelativeToAbsolutePoses(vo_file, timestamps, timestamps(1));
+        
+t_err_5p = nan(size(timestamps));
+t_err_4pst0 = nan(size(timestamps));
+t_err_4pra = nan(size(timestamps));
+t_err_3prast0 = nan(size(timestamps));
+rel_5p = cell(size(timestamps));
+rel_4pst0 = cell(size(timestamps));
+rel_4pra = cell(size(timestamps));
+rel_3prast0 = cell(size(timestamps));
+time_5p = nan(size(timestamps));
+time_4pst0 = nan(size(timestamps));
+time_4pra = nan(size(timestamps));
+time_3prast0 = nan(size(timestamps));
 
-% fprintf('Processing          ');
+min_move = 2;
+vo_move = 0;
 for i = 1:numel(timestamps)
     fprintf('%6d / %d\n', i, numel(timestamps));
     rng(3);
-
-    curr_im = rgb2gray(LoadImage(image_dir, timestamps(i), LUT));
-    curr_im = imresize(curr_im, scale);
-    curr_im = curr_im(1:lower_clip, :);
-    curr_points = detectSURFFeatures(curr_im);
-    [curr_feat, curr_points] = extractFeatures(curr_im, curr_points);
+    clc;
     
     if i > 1
-        ins_pose = InterpolatePoses(ins_file, timestamps(i), timestamps(i - 1));
-        vo_pose = RelativeToAbsolutePoses(vo_file, timestamps(i), timestamps(i - 1));
-        
-        pairs = matchFeatures(curr_feat, prev_feat,...
-            'method', 'Exhaustive', 'maxratio', 0.6) ;
-        mpoints1 = curr_points(pairs(:, 1));
-        mpoints2 = prev_points(pairs(:, 2));
-        
-%         dist = sqrt(sum(([mpoints1(:).Location] - [mpoints2(:).Location]).^2, 2));
-%         mpoints1 = mpoints1(dist > 10);
-%         mpoints2 = mpoints2(dist > 10);
-        
-        rays1 = ([mpoints1(:).Location] - [cx, cy]) ./ [fx, fy];
-        rays2 = ([mpoints2(:).Location] - [cx, cy]) ./ [fx, fy];
-        rays1(:, 3) = 1; rays2(:, 3) = 1;
-        dist = sqrt(sum(([mpoints1(:).Location] - [mpoints2(:).Location]).^2, 2));
-                
-        vo_relative = camera_ins \ vo_pose{1} * camera_ins;
-        ins_relative = camera_ins \ ins_pose{1} * camera_ins;
-        vo_nt = normc(vo_relative(1:3, 4));
-        ins_nt = normc(ins_relative(1:3, 4));
-
-        [E_5p, mask_5p] = estimateRelativePose_PC5P_LiH(rays1, rays2, 0.999, thresh);
-%         fprintf('mask %f\n', sum(mask_5p));
-        if ~isempty(E_5p)
-            pose1 = recoverRelativePose(E_5p, 'rays1', rays1(logical(mask_5p), :), 'rays2', rays2(logical(mask_5p), :));
-            if (isfield(pose1, 'R'))
-                t_err_5p(i) = acosd(dot(vo_nt, pose1.t));
-                rel_5p{i} = [pose1.R, pose1.t; 0, 0, 0, 1];
+        vo_rel = vo_poses{prev_i} \ vo_poses{i};
+        vo_rel = camera_ins \ vo_rel * camera_ins;
+        ins_rel = ins_poses{prev_i} \ ins_poses{i};
+%         ins_relative = camera_ins \ ins_pose{1} * camera_ins;
+        vo_nt = normc(vo_rel(1:3, 4));
+        vo_move = norm(vo_rel(1:3, 4));
+    end
+    if i == 1 || vo_move > min_move
+        curr_im = rgb2gray(LoadImage(image_dir, timestamps(i), LUT));
+        curr_im = imresize(curr_im, scale);
+        curr_im = curr_im(1:lower_clip, :);
+        temp = curr_im;
+        curr_im = histeq(curr_im, 255);
+        curr_points = detectSURFFeatures(curr_im, 'metricthreshold', 300);
+        [curr_feat, curr_points] = extractFeatures(curr_im, curr_points);
+    
+        if i > 1% && gt_move > min_move
+            pairs = matchFeatures(curr_feat, prev_feat,...
+                'method', 'Exhaustive', 'maxratio', 0.6);
+            mpoints1 = curr_points(pairs(:, 1));
+            mpoints2 = prev_points(pairs(:, 2));
+            rays1 = ([mpoints1(:).Location] - [cx, cy]) ./ [fx, fy];
+            rays2 = ([mpoints2(:).Location] - [cx, cy]) ./ [fx, fy];
+            rays1(:, 3) = 1; rays2(:, 3) = 1;
+            
+            tic, [E_5p, mask_5p] = estimateRelativePose_PC5P_LiH(...
+                rays1, rays2, 0.999, thresh);
+            time_5p(i) = toc();
+            if ~isempty(E_5p)
+                pose1 = recoverRelativePose(E_5p, 'rays1', rays1(logical(mask_5p), :), 'rays2', rays2(logical(mask_5p), :));
+                if (isfield(pose1, 'R'))
+                    t_err_5p(i) = acosd(dot(vo_nt, pose1.t));
+                    rel_5p{i} = [pose1.R, pose1.t * vo_move; 0, 0, 0, 1];
+                end
             end
-        end
-
-        [E_4pst0, mask_4pst0] = estimateRelativePose_PC4PST0_NullE(rays1, rays2, 0.999, thresh);
-        if ~isempty(E_4pst0)
-            pose2 = recoverRelativePose(E_4pst0, 'rays1', rays1(logical(mask_4pst0), :), 'rays2', rays2(logical(mask_4pst0), :), 'zeroscrewtransl', true);
-            if isfield(pose2, 'R')
-                t_err_4pst0(i) = acosd(dot(vo_nt, pose2.t));
-                rel_4pst0{i} = [pose2.R, pose2.t; 0, 0, 0, 1];
+            
+            tic, [E_4pst0, mask_4pst0] = estimateRelativePose_PC4PST0_NullE(...
+                rays1, rays2, 0.999, thresh);
+            time_4pst0(i) = toc();
+            if ~isempty(E_4pst0)
+                pose2 = recoverRelativePose(E_4pst0, 'rays1', rays1(logical(mask_4pst0), :), 'rays2', rays2(logical(mask_4pst0), :), 'zeroscrewtransl', true);
+                if isfield(pose2, 'R')
+                    t_err_4pst0(i) = acosd(dot(vo_nt, pose2.t));
+                    rel_4pst0{i} = [pose2.R, pose2.t * vo_move; 0, 0, 0, 1];
+                end
             end
-        end
-
-        [E_2pot, mask_2pot] = estimateRelativePose_PC2POT(rays1, rays2, 0.999, thresh);
-        if ~isempty(E_2pot)
-            pose3 = recoverRelativePose(E_2pot, 'rays1', rays1(logical(mask_2pot), :), 'rays2', rays2(logical(mask_2pot), :), 'zeroscrewtransl', true);
-            if sum(mask_2pot) >= sum(mask_4pst0) * 0.99 && isfield(pose3, 'R')
-                t_err_4pst0(i) = acosd(dot(vo_nt, pose3.t));
-                rel_4pst0{i} = [pose3.R, pose3.t; 0, 0, 0, 1];
+            
+            r4vec = vrrotmat2vec(ins_rel(1:3, 1:3));
+%             r4vec = vrrotmat2vec(vo_rel(1:3, 1:3));
+            tic, [E_3prast0, mask_3prast0] = estimateRelativePose_PC3PRAST0_T2D(...
+                r4vec(end), rays1, rays2, 0.999, thresh);
+            time_3prast0(i) = toc();
+            if ~isempty(E_3prast0)
+                pose3 = recoverRelativePose(E_3prast0, 'rays1', rays1(logical(mask_3prast0), :), 'rays2', rays2(logical(mask_3prast0), :), 'zeroscrewtransl', true);
+                if isfield(pose3, 'R')
+                    t_err_3prast0(i) = acosd(dot(vo_nt, pose3.t));
+                    rel_3prast0{i} = [pose3.R, pose3.t * vo_move; 0, 0, 0, 1];
+                end
             end
+            
+            tic, [E_4pra, mask_4pra] = estimateRelativePose_PC4PRA(...
+                r4vec(end), rays1, rays2, 0.999, thresh);
+            time_4pra(i) = toc();
+            if ~isempty(E_4pra)
+                pose4 = recoverRelativePose(E_4pra, 'rays1', rays1(logical(mask_4pra), :), 'rays2', rays2(logical(mask_4pra), :), 'zeroscrewtransl', true);
+                if isfield(pose4, 'R')
+                    t_err_4pra(i) = acosd(dot(vo_nt, pose4.t));
+                    rel_4pra{i} = [pose4.R, pose4.t * vo_move; 0, 0, 0, 1];
+                end
+            end
+            
+            disp([sum(mask_4pst0), sum(mask_5p)]);
+            disp([pose1.R, normc(pose1.t)]);
+            disp([pose2.R, normc(pose2.t)]);
+            disp([pose3.R, normc(pose3.t)]);
+            disp([pose4.R, normc(pose4.t)]);
+            disp([vo_rel(1:3, 1:3), normc(vo_rel(1:3, 4)), vo_rel(1:3, 4)]);
+            disp('---');
         end
-%         figure; showMatchedFeatures(curr_im, prev_im, mpoints1, mpoints2);
-
-        tnorm = norm(vo_relative(1:3, 4));
-        if ~isempty(rel_4pst0{i})
-            rel_4pst0{i}(1:3, 4) = rel_4pst0{i}(1:3, 4) * tnorm;
-        end
-        if ~isempty(rel_5p{i})
-            rel_5p{i}(1:3, 4) = rel_5p{i}(1:3, 4) * tnorm;
-        end
-        
-        axis = vrrotmat2vec(ins_relative(1:3, 1:3));
-        ins_st(i) = dot(axis(1:3), ins_nt);
-        
-        fprintf('%d time: %f\n', i - 2, timestamps(i));
-        fprintf('%f %f\n', t_err_4pst0(i), t_err_5p(i));
-        fprintf('%f\n', ins_st(i));
-
-        disp(vo_relative);
-        disp([pose2.R, pose2.t]);
-
-%         return;
+        [prev_points, prev_feat, prev_im] = deal(curr_points, curr_feat, curr_im);
+        prev_i = i;
+%         if i > 20; return; end
     end 
-    [prev_points, prev_feat, prev_im] = deal(curr_points, curr_feat, curr_im);
 end
 fprintf('\n');

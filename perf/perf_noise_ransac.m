@@ -3,7 +3,7 @@ addpath(fullfile(fileparts(mfilename('fullpath')), '/parfor_progress/'));
 
 clear
 
-N = 1000; K1 = 8; K2 = 8; K3 = 8;
+N = 3000; K1 = 8; K2 = 8; K3 = 8;
 
 focal = 500;
 nstd_ray = linspace(0, 1, K1) / focal;

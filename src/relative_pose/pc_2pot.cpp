@@ -34,8 +34,7 @@ class PC2POTNullEEstimatorCallback CV_FINAL : public RelativePoseEstimatorCallba
 
 namespace cv
 {
-/*
-int RANSACUpdateNumIters( double p, double ep, int modelPoints, int maxIters )
+int RANSACUpdateNumIters_2pot( double p, double ep, int modelPoints, int maxIters )
 {
     if( modelPoints <= 0 )
         CV_Error( Error::StsOutOfRange, "the number of model points should be positive" );
@@ -56,10 +55,10 @@ int RANSACUpdateNumIters( double p, double ep, int modelPoints, int maxIters )
 
     return denom >= 0 || -num >= maxIters*(-denom) ? maxIters : cvRound(num/denom);
 }
-class RANSACPointSetRegistrator : public PointSetRegistrator
+class RANSACPointSetRegistrator_2pot : public PointSetRegistrator
 {
 public:
-    RANSACPointSetRegistrator(const Ptr<PointSetRegistrator::Callback>& _cb=Ptr<PointSetRegistrator::Callback>(),
+    RANSACPointSetRegistrator_2pot(const Ptr<PointSetRegistrator::Callback>& _cb=Ptr<PointSetRegistrator::Callback>(),
                               int _modelPoints=0, double _threshold=0, double _confidence=0.99, int _maxIters=1000)
       : cb(_cb), modelPoints(_modelPoints), threshold(_threshold), confidence(_confidence), maxIters(_maxIters) {}
 
@@ -79,6 +78,14 @@ public:
             maskptr[i] = (uchar)f;
             nz += f;
         }
+        // {
+        //     Mat E = model;
+        //     Mat R1, R2, t;
+        //     decomposeEssentialMat(E, R1, R2, t);
+        //     t *= (t.at<double>(2) > 0 ? 1 : -1);
+        //     std::cout << "---------------" << std::endl;
+        //     std::cout << "t = " << t.t() << " " << trace(R1)[0] << " " << trace(R2)[0] << " " << nz << std::endl;
+        // }
         return nz;
     }
 
@@ -203,10 +210,17 @@ public:
 
                 if( goodCount > MAX(maxGoodCount, modelPoints-1) )
                 {
-                    std::swap(mask, bestMask);
-                    model_i.copyTo(bestModel);
-                    maxGoodCount = goodCount;
-                    niters = RANSACUpdateNumIters( confidence, (double)(count - goodCount)/count, modelPoints, niters );
+                    // Mat cheir_mask;
+                    // checkPositiveDepth(m1, m2, model_i, mask, cheir_mask);
+                    // if (!cheir_mask.empty()) mask = cheir_mask;
+                    // goodCount = countNonZero(mask);
+                    // if (goodCount > maxGoodCount)
+                    {
+                        std::swap(mask, bestMask);
+                        model_i.copyTo(bestModel);
+                        maxGoodCount = goodCount;
+                        niters = RANSACUpdateNumIters_2pot( confidence, (double)(count - goodCount)/count, modelPoints, niters );
+                    }
                 }
             }
         }
@@ -237,7 +251,6 @@ public:
     double confidence;
     int maxIters;
 };
-*/
 
 Mat estimateRelativePose_PC2POT(
         InputArray _rays1, InputArray _rays2,
@@ -249,14 +262,14 @@ Mat estimateRelativePose_PC2POT(
 
     Mat models;
     if( method == RANSAC )
-        createRANSACPointSetRegistrator(
-                makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 2, threshold, prob)->run(
-                rays1, rays2, models, _mask);
-    // {
-    //     auto reg = RANSACPointSetRegistrator(
-    //             makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 4, threshold, prob);
-    //     reg.run(rays1, rays2, models, _mask);
-    // }
+    //     createRANSACPointSetRegistrator_2pot(
+    //             makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 2, threshold, prob)->run(
+    //             rays1, rays2, models, _mask);
+    {
+        auto reg = RANSACPointSetRegistrator_2pot(
+                makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 4, threshold, prob);
+        reg.run(rays1, rays2, models, _mask);
+    }
     else
         createLMeDSPointSetRegistrator(
                 makePtr<pc_2pot::PC2POTNullEEstimatorCallback>(), 2, prob)->run(
