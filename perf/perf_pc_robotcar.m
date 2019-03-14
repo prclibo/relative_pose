@@ -34,7 +34,7 @@ thresh = thresh * scale;
 lower_clip = lower_clip * scale;
 
 % timestamps = timestamps(197:200);
-timestamps = timestamps(20:end - 20);
+timestamps = timestamps(50:end - 50);
 
 ins_poses = InterpolatePoses(ins_file, timestamps, timestamps(1));
 vo_poses = RelativeToAbsolutePoses(vo_file, timestamps, timestamps(1));
@@ -52,16 +52,22 @@ time_4pst0 = nan(size(timestamps));
 time_4pra = nan(size(timestamps));
 time_3prast0 = nan(size(timestamps));
 
-min_move = 2;
+min_move = 1;
 vo_move = 0;
 for i = 1:numel(timestamps)
     fprintf('%6d / %d\n', i, numel(timestamps));
     rng(3);
-    clc;
+%     clc;
     
     if i > 1
-        vo_rel = vo_poses{prev_i} \ vo_poses{i};
+        offseted = vo_poses{i};
+        offseted_prev = vo_poses{prev_i};
+        offseted(1:3, 4) = offseted(1:3, 4) - offseted_prev(1:3, 4);
+        offseted_prev(1:3, 4) = 0;
+        
+        vo_rel = offseted_prev \ offseted;
         vo_rel = camera_ins \ vo_rel * camera_ins;
+        
         ins_rel = ins_poses{prev_i} \ ins_poses{i};
 %         ins_relative = camera_ins \ ins_pose{1} * camera_ins;
         vo_nt = normc(vo_rel(1:3, 4));
@@ -84,6 +90,8 @@ for i = 1:numel(timestamps)
             rays1 = ([mpoints1(:).Location] - [cx, cy]) ./ [fx, fy];
             rays2 = ([mpoints2(:).Location] - [cx, cy]) ./ [fx, fy];
             rays1(:, 3) = 1; rays2(:, 3) = 1;
+            
+            if isempty(rays1) || isempty(rays2); continue; end
             
             tic, [E_5p, mask_5p] = estimateRelativePose_PC5P_LiH(...
                 rays1, rays2, 0.999, thresh);

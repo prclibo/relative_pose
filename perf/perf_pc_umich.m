@@ -106,6 +106,30 @@ for i = 1:numel(im_stamps)
                 end
             end
             
+            r4vec = vrrotmat2vec(gt_rel(1:3, 1:3));
+%             r4vec = vrrotmat2vec(vo_rel(1:3, 1:3));
+            tic, [E_3prast0, mask_3prast0] = estimateRelativePose_PC3PRAST0_T2D(...
+                r4vec(end), rays1, rays2, 0.999, thresh);
+            time_3prast0(i) = toc();
+            if ~isempty(E_3prast0)
+                pose3 = recoverRelativePose(E_3prast0, 'rays1', rays1(logical(mask_3prast0), :), 'rays2', rays2(logical(mask_3prast0), :), 'zeroscrewtransl', true);
+                if isfield(pose3, 'R')
+                    t_err_3prast0(i) = acosd(dot(gt_nt, pose3.t));
+                    rel_3prast0{i} = [pose3.R, pose3.t * gt_move; 0, 0, 0, 1];
+                end
+            end
+            
+            tic, [E_4pra, mask_4pra] = estimateRelativePose_PC4PRA(...
+                r4vec(end), rays1, rays2, 0.999, thresh);
+            time_4pra(i) = toc();
+            if ~isempty(E_4pra)
+                pose4 = recoverRelativePose(E_4pra, 'rays1', rays1(logical(mask_4pra), :), 'rays2', rays2(logical(mask_4pra), :), 'zeroscrewtransl', true);
+                if isfield(pose4, 'R')
+                    t_err_4pra(i) = acosd(dot(gt_nt, pose4.t));
+                    rel_4pra{i} = [pose4.R, pose4.t * gt_move; 0, 0, 0, 1];
+                end
+            end
+            
             tic, [E_4pst0, mask_4pst0] = estimateRelativePose_PC4PST0_NullE(...
                 rays1, rays2, 0.999, thresh);
             time_4pst0(i) = toc();
@@ -118,11 +142,17 @@ for i = 1:numel(im_stamps)
             end
             [E_2pot, mask_2pot] = estimateRelativePose_PC2POT(...
                 rays1, rays2, 0.999, thresh);
-            if ~isempty(E_2pot) && sum(mask_2pot) > sum(mask_4pst0)
+            if ~isempty(E_2pot)
                 pose2ot = recoverRelativePose(E_2pot, 'rays1', rays1(logical(mask_2pot), :), 'rays2', rays2(logical(mask_2pot), :), 'zeroscrewtransl', true);
                 if isfield(pose2ot, 'R')
-                    t_err_4pst0(i) = acosd(dot(gt_nt, pose2ot.t));
-                    rel_4pst0{i} = [pose2ot.R, pose2ot.t * gt_move; 0, 0, 0, 1];
+                    if sum(mask_2pot) > sum(mask_4pst0)
+                        t_err_4pst0(i) = acosd(dot(gt_nt, pose2ot.t));
+                        rel_4pst0{i} = [pose2ot.R, pose2ot.t * gt_move; 0, 0, 0, 1];
+                    end
+                    if sum(mask_2pot) > sum(mask_3prast0)
+                        t_err_3prast0(i) = acosd(dot(gt_nt, pose2ot.t));
+                        rel_3prast0{i} = [pose2ot.R, pose2ot.t * gt_move; 0, 0, 0, 1];
+                    end
                 end
             end
             
