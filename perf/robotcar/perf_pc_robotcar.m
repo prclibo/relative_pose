@@ -3,27 +3,41 @@ clear, clc
 rng(3);
 
 sdk_dir = '~/workspace/robotcar-dataset-sdk';
-data_dir = '~/data/robotcar/2014-05-14-13-46-12';
+% data_dir = '~/data/robotcar/2014-05-14-13-46-12';
 data_dir = '~/data/robotcar/2014-06-26-08-53-56';
-image_dir = fullfile(data_dir, 'stereo/centre');
-timestamp_file = fullfile(data_dir, 'stereo.timestamps');
 model_dir = fullfile(sdk_dir, 'models');
 extrinsic_dir = fullfile(sdk_dir, 'extrinsics');
 ins_file = fullfile(data_dir, 'gps/ins.csv');
 vo_file = fullfile(data_dir, 'vo/vo.csv');
 
-addpath(fullfile(sdk_dir, 'matlab'));
-addpath(fullfile(fileparts(mfilename('fullpath')), '/../build/matlab/'));
+error('consec = 1 with choice 2 can outperform');
+choice = 2;
+if choice == 1
+    image_dir = fullfile(data_dir, 'stereo/centre');
+    timestamp_file = fullfile(data_dir, 'stereo.timestamps');
+    ins_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/ins.txt']));
+    cam_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/stereo.txt']));
+    [fx, fy, cx, cy, G_camera_image, LUT] = ReadCameraModel(image_dir, model_dir);
+    cam_ins = ins_extrs \ cam_extrs * G_camera_image;
+    lower_clip = 830;
+elseif choice == 2
+    image_dir = fullfile(data_dir, 'mono_rear');
+    timestamp_file = fullfile(data_dir, 'mono_rear.timestamps');
+    ins_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/ins.txt']));
+    cam_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/mono_rear.txt']));
+    [fx, fy, cx, cy, G_camera_image, LUT] = ReadCameraModel(image_dir, model_dir);
+    cam_ins = ins_extrs \ cam_extrs * G_camera_image;
+    lower_clip = 950;
+end
 
-consec_interv = 5;
+addpath(fullfile(sdk_dir, 'matlab'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '/../../build/matlab/'));
+
+consec_interv = 1;
 timestamps = load(timestamp_file);
 timestamps = timestamps(1:consec_interv:end, 1)';
-[fx, fy, cx, cy, G_camera_image, LUT] = ReadCameraModel(image_dir, model_dir);
+
 thresh = 4 / fx;
-ins_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/ins.txt']));
-stereo_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/stereo.txt']));
-camera_ins = ins_extrs \ stereo_extrs * G_camera_image;
-lower_clip = 830;
 
 scale = 0.5;
 fx = fx * scale;
@@ -52,7 +66,7 @@ time_4pst0 = nan(size(timestamps));
 time_4pra = nan(size(timestamps));
 time_3prast0 = nan(size(timestamps));
 
-min_move = 1;
+min_move = 2;
 vo_move = 0;
 for i = 1:numel(timestamps)
     fprintf('%6d / %d\n', i, numel(timestamps));
@@ -64,12 +78,9 @@ for i = 1:numel(timestamps)
         offseted_prev = vo_poses{prev_i};
         offseted(1:3, 4) = offseted(1:3, 4) - offseted_prev(1:3, 4);
         offseted_prev(1:3, 4) = 0;
-        
         vo_rel = offseted_prev \ offseted;
-        vo_rel = camera_ins \ vo_rel * camera_ins;
-        
+        vo_rel = cam_ins \ vo_rel * cam_ins;
         ins_rel = ins_poses{prev_i} \ ins_poses{i};
-%         ins_relative = camera_ins \ ins_pose{1} * camera_ins;
         vo_nt = normc(vo_rel(1:3, 4));
         vo_move = norm(vo_rel(1:3, 4));
     end
@@ -149,7 +160,7 @@ for i = 1:numel(timestamps)
         end
         [prev_points, prev_feat, prev_im] = deal(curr_points, curr_feat, curr_im);
         prev_i = i;
-%         if i > 20; return; end
+        if i > 200; return; end
     end 
 end
 fprintf('\n');

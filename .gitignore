@@ -2,3 +2,5 @@ build
 *~
 *.swp
 *.pdf
+*.mat
+*.DS_Store

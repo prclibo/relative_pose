@@ -1,10 +1,11 @@
 addpath('~/workspace/relative_pose/build/matlab');
 addpath('~/workspace/relative_pose/build/Matlab');
+addpath('../utils');
 
 clear, clc
 
 data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam';
-% data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam2';
+data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam2';
 gt_path = fullfile(data_dir, 'groundtruth.txt');
 rgb_list_path = fullfile(data_dir, 'rgb.txt');
 rgb_dir = fullfile(data_dir, 'rgb');
@@ -34,13 +35,17 @@ rel_4pst0 = cell(size(rgb_list{1}));
 time_5p = nan(size(rgb_list{1}));
 time_4pst0 = nan(size(rgb_list{1}));
 
-min_move = 0.05;
+min_move = 0.1;
 gt_move = 0;
 for i = 1:numel(rgb_list{1})
     rng(3);
 %     clc;
     if i > 1
-        gt_rel = rgb_poses{prev_i} \ rgb_poses{i};
+        offseted = rgb_poses{i};
+        offseted_prev = rgb_poses{prev_i};
+        offseted(1:3, 4) = offseted(1:3, 4) - offseted_prev(1:3, 4);
+        offseted_prev(1:3, 4) = 0;
+        gt_rel = offseted_prev \ offseted;
         gt_nt = normc(gt_rel(1:3, 4));
         gt_move = norm(gt_rel(1:3, 4));
     end

@@ -1,9 +1,10 @@
-addpath(fullfile(fileparts(mfilename('fullpath')), '/../build/matlab/'));
-addpath(fullfile(fileparts(mfilename('fullpath')), '/parfor_progress/'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '/../../build/matlab/'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '/../utils/'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '/../parfor_progress/'));
 
 clear
 
-N = 100; K1 = 8; K2 = 2; K3 = 2;
+N = 200; K1 = 8; K2 = 1; K3 = 4;
 
 focal = 500;
 nstd_ray = linspace(0, 2, K1) / focal;
@@ -20,7 +21,7 @@ parfor_progress(N * K1 * K2 * K3);
 for i = 1:(N * K1 * K2 * K3)
     rng(i);
     [n, k1, k2, k3] = ind2sub([N, K1, K2, K3], i);
-    sample = sampleRays(20, nstd_ray(k1), 0, nstd_angle(k2), nstd_transl(k3), 'sideway');
+    sample = sampleRays(100, nstd_ray(k1), 0.3, nstd_angle(k2), nstd_transl(k3), 'forward');
     
     rays1 = sample.q';
     rays2 = sample.qq';
@@ -61,3 +62,5 @@ for i = 1:(N * K1 * K2 * K3)
 end
 parfor_progress(0);
 toc
+
+save('/tmp/tmp.mat');

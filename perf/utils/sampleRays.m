@@ -20,6 +20,8 @@ if true % parser.Results.ZeroScrewTransl
         t = normc([randn([2, 1]) * transl_turb; 1]);
     elseif strcmpi(motion, 'sideway')
         t = normc([1; randn([2, 1]) * transl_turb]);
+    else
+        error(['Unknown motion: ', motion]);
     end
     t = normc(t - dot(t, axis) * axis);
     t = t + randn() * planar_turb * axis;
