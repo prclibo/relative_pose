@@ -10,7 +10,10 @@ extrinsic_dir = fullfile(sdk_dir, 'extrinsics');
 ins_file = fullfile(data_dir, 'gps/ins.csv');
 vo_file = fullfile(data_dir, 'vo/vo.csv');
 
-error('consec = 1 with choice 2 can outperform');
+addpath(fullfile(sdk_dir, 'matlab'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '/../../build/matlab/'));
+
+% error('consec = 1 with choice 2 can outperform');
 choice = 2;
 if choice == 1
     image_dir = fullfile(data_dir, 'stereo/centre');
@@ -29,9 +32,6 @@ elseif choice == 2
     cam_ins = ins_extrs \ cam_extrs * G_camera_image;
     lower_clip = 950;
 end
-
-addpath(fullfile(sdk_dir, 'matlab'));
-addpath(fullfile(fileparts(mfilename('fullpath')), '/../../build/matlab/'));
 
 consec_interv = 1;
 timestamps = load(timestamp_file);

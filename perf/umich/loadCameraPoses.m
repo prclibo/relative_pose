@@ -9,8 +9,9 @@ x_wv = [gt_poses.pos(gt_i, :)'; gt_poses.rph(gt_i, :)'];
 x_wv_dot = [gt_poses.vel(gt_i, :)'; gt_poses.rotation_rate(gt_i, :)'];
 
 dt = im_stamps(im_i) - gt_poses.utime(gt_i);
+dt = dt(:)';
 dt = dt * 1e-6;
-x_wv = x_wv + x_wv_dot * dt;
+x_wv = x_wv + x_wv_dot .* repmat(dt,[6, 1]);
 x_ws = ssc_head2tail(x_wv, x_vs);
 
 poses(1:3, 1:3, :) = rotxyz(x_ws(4,:), x_ws(5,:), x_ws(6,:));     %[3 x 3 x Nshots]

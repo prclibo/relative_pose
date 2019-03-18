@@ -6,6 +6,8 @@ clear, clc
 
 data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam';
 data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam2';
+data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam3';
+data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_360';
 gt_path = fullfile(data_dir, 'groundtruth.txt');
 rgb_list_path = fullfile(data_dir, 'rgb.txt');
 rgb_dir = fullfile(data_dir, 'rgb');
@@ -22,7 +24,7 @@ cx = 319.5;  % optical center x
 cy = 239.5;  % optical center y
 thresh = 1 / fx;
 
-consec_interv = 10;
+consec_interv = 1;
 start = 50;
 rgb_list{1} = rgb_list{1}(start:consec_interv:end);
 rgb_list{2} = rgb_list{2}(start:consec_interv:end);
