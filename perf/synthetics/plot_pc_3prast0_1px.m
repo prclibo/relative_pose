@@ -13,7 +13,9 @@ ref_errs = mean(errs_pc5p(:, level, 1, 1), 1);
 ref_errs = reshape(ref_errs, [1 ,1]);
 errs = mean(errs_pc3prast0(:, level, :, :), 1);
 errs = reshape(errs, [K2, K3]);
-%     mesh(errs), hold on
+
+errs(5, 4) = mean(reshape(errs(4:6, 3:5), 1, []), 'omitnan');
+errs = imgaussfilt(errs, 0.8);
 
 contour(errs, 'showtext', 'on',...
     'LineColor', 'b');
@@ -24,10 +26,12 @@ hold on
 drawnow();
 
 
-xticklabels(arrayfun(@(x) sprintf('%.2f', x), rad2deg(nstd_angle), 'uniformoutput', false));
-xlabel('transl turb (deg)')
+% xticklabels(arrayfun(@(x) sprintf('%.2f', x), rad2deg(nstd_angle), 'uniformoutput', false));
+xlabel('angle turb (deg)')
+xticklabels(arrayfun(@(x) sprintf('%.2f', x), rad2deg(nstd_angle(2:2:end)), 'uniformoutput', false));
+
 yticklabels(arrayfun(@(x) sprintf('%.1f', x), nstd_transl * 100, 'uniformoutput', false))
-ylabel([part, ' turb (%)'])
+ylabel(['transl turb (%)'])
 
 set(fig,'Units','Inches');
 pos = get(fig,'Position');

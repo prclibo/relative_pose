@@ -1,31 +1,87 @@
+% Bicocca_2009-02-26b odometry+groundtruth
+%     8.9281   10.3423    8.7778   10.7529
+%    15.9806   15.9866   16.1400   17.5320
+%    26.9382   29.1232   29.0879   27.7154
+% Bicocca_2009-02-26b imu+groundtruth
+%     5.5515    6.6975    8.7778   10.7529
+%     9.3589   10.5029   16.1400   17.5320
+%    15.4483   15.6514   29.0879   27.7154
 
-% Bicocca_2009-02-26a odometry
+% Bicocca_2009-02-25a imu+groundtruth
+%     4.5468    6.6053    6.9396    9.8471
+%     8.3400   11.7931   13.3206   15.8183
+%    13.9588   17.4229   22.7530   24.9124
+%    4.5 & 6.6 & 6.9 & 9.8 \\ 
+% 8.3 & 11.8 & 13.3 & 15.8 \\ 
+% 14.0 & 17.4 & 22.8 & 24.9 \\ 
+
+% Bicocca_2009-02-25a odo+groundtruth
+%     9.1500   11.4928    6.9396    9.8471
+%    17.7667   20.4146   13.3206   15.8183
+%    32.6056   39.2690   22.7530   24.9124
+% 9.1 & 11.5 & 6.9 & 9.8 \\ 
+% 17.8 & 20.4 & 13.3 & 15.8 \\ 
+% 32.6 & 39.3 & 22.8 & 24.9 \\ 
+
+% Bicocca_2009-02-26a odometry+groundtruth
 %     7.3173   10.5614    7.0668    9.1367
 %    14.6692   18.7773   12.5030   15.1218
 %    27.4657   33.7739   21.7977   23.6057
-% % Bicocca_2009-02-26a imu
+% % Bicocca_2009-02-26a imu+groundtruth
 %     4.5205    6.7192    7.0668    9.1892
 %     7.4796   11.0883   12.5255   15.2482
 %    11.5709   15.7383   21.7977   23.6116
+% Bicocca_2009-02-26a imu+gt+extended
+%     4.4204    4.3396    5.5749    5.7401
+%     7.6577    7.4464   10.2928   11.0129
+%    13.0943   12.7593   19.7734   20.8888
+% Bicocca_2009-02-26a odo+gt+extended
+%     6.2043    6.3419    5.5749    5.7401
+%    12.3399   11.6105   10.2928   11.0129
+%    24.0854   22.3757   19.7621   20.8888
+% Bicocca_2009-02-25b imu+groundtruth
+%     5.5203    7.5899    8.8442   10.6313
+%     9.2952   11.2719   16.4937   17.8571
+%    16.2446   16.8224   30.8878   30.0394
+% Bicocca_2009-02-25b odo+groundtruth
+%    10.0557   10.6648    8.8442   10.6313
+%    17.4071   17.0987   16.4937   17.8571
+%    35.8837   34.6811   30.8878   30.0394
+% Bicocca_2009-02-25b odo+gt+extended
+%     6.2335    5.8942    5.1437    5.7197
+%    11.4557   11.0614   10.3637   10.9661
+%    22.8296   20.3719   20.3124   20.9269
+% Bicocca_2009-02-25b imu+gt+extended
+%     4.4631    4.2547    5.1437    5.7197
+%     7.7628    7.3831   10.3637   10.9661
+%    13.4807   12.6913   20.3124   20.9269
+
 
 clear;
 rng(3);
-rot_type = 'imu';
+rot_type = 'odo';
 
 addpath('~/data/umich_ford/Code/MATLAB/create_ijrr_utils/')
 addpath(fullfile(fileparts(mfilename('fullpath')), '/../../build/matlab/'));
 addpath(fullfile(fileparts(mfilename('fullpath')), '/../utils'));
 
 data_name = 'Bicocca_2009-02-26a';
+data_name = 'Bicocca_2009-02-25b';
+data_name = 'Bicocca_2009-02-26b';
+data_name = 'Bicocca_2009-02-25a';
+cam_name = 'FRONTAL';
+cam_name = 'SVS_L';
+
 data_dir = fullfile('~/data/rawseeds', data_name);
 
 im_dir = fullfile(data_dir, 'FRONTAL');
 gt_path = fullfile(data_dir, sprintf('%s-GROUNDTRUTH.csv', data_name));
+% gt_path = fullfile(data_dir, sprintf('%s-GT-extended.csv', data_name));
 imu_path = fullfile(data_dir, sprintf('%s-IMU_STRETCHED.csv', data_name));
 odo_path = fullfile(data_dir, sprintf('%s-ODOMETRY_XYT.csv', data_name));
-im_list_path = fullfile(data_dir, sprintf('%s-LISTS/%s-FRONTAL.lst', data_name, data_name));
-stamp_path = fullfile(data_dir, sprintf('%s-LISTS/%s-FRONTAL.csv', data_name, data_name));
-calib_path = fullfile(data_dir, '../Calibration_04-Results/Calibration_04-Intrinsics_FRONTAL.mat');
+im_list_path = fullfile(data_dir, sprintf('%s-LISTS/%s-%s.lst', data_name, data_name, cam_name));
+stamp_path = fullfile(data_dir, sprintf('%s-LISTS/%s-%s.csv', data_name, data_name, cam_name));
+calib_path = fullfile(data_dir, sprintf('../Calibration_04-Results/Calibration_04-Intrinsics_%s.mat', cam_name));
 
 fid_im_list = fopen(im_list_path, 'r');
 im_list = textscan(fid_im_list, '%s');
@@ -48,19 +104,32 @@ gt_poses = gt_poses(im_indices);
 im_stamps = im_stamps(im_indices);
 im_list = im_list(im_indices);
 
-cam_extrs = [ 0,  0, 1, -0.171;
-             -1,  0, 0, -0.115;
-              0, -1, 0,  1.068;
-              0,  0, 0,  1];
+
+if strcmp(cam_name, 'FRONTAL')
+    fx = cam_intrs.fc_frontal(1);
+    fy = cam_intrs.fc_frontal(2);
+    cx = cam_intrs.cc_frontal(1);
+    cy = cam_intrs.cc_frontal(2);
+    cam_extrs = [ 0,  0, 1, -0.171;
+        -1,  0, 0, -0.115;
+        0, -1, 0,  1.068;
+        0,  0, 0,  1];
+elseif strcmp(cam_name, 'SVS_L')
+    fx = cam_intrs.fc_left(1);
+    fy = cam_intrs.fc_left(2);
+    cx = cam_intrs.cc_left(1);
+    cy = cam_intrs.cc_left(2);
+    cam_extrs = [ 0,  0, 1, -0.02;
+        -1,  0, 0, -0.098;
+        0, -1, 0,  0.745;
+        0,  0, 0,  1];
+end
+
 odo_extrs = [ 0, 1, 0, 0;
              -1, 0, 0, 0;
               0, 0, 1, 0;
               0, 0, 0, 1];
 
-fx = cam_intrs.fc_frontal(1);
-fy = cam_intrs.fc_frontal(2);
-cx = cam_intrs.cc_frontal(1);
-cy = cam_intrs.cc_frontal(2);
 
 cam_param = cameraParameters(...
     'IntrinsicMatrix', [fx, 0, 0; 0, fy, 0; cx, cy, 1], ...

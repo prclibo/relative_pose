@@ -14,20 +14,37 @@
 %     2.0527    2.1972    2.0696    2.2028
 %     3.5311    3.7184    3.5239    4.0104
 %     5.7972    6.4068    6.0888    6.7367
-% 
 
-
-
+% ds1_move1_cam1
+%     1.4365    1.4854    1.4199    1.6007
+%     2.4730    2.6917    2.5896    2.9282
+%     5.2901    5.1334    5.7044    5.5705
+% 1.4 & 1.5 & 1.4 & 1.6 \\ 
+% 2.5 & 2.7 & 2.6 & 2.9 \\ 
+% 5.3 & 5.1 & 5.7 & 5.6 \\ 
+% ds2_move1_cam1
+%     2.1343    2.2477    2.0959    2.4073
+%     4.0521    4.7402    4.1080    4.8971
+%     8.2367   10.8266    8.5311   10.1036
+% 2.1 & 2.2 & 2.1 & 2.4 \\ 
+% 4.1 & 4.7 & 4.1 & 4.9 \\ 
+% 8.2 & 10.8 & 8.5 & 10.1 \\ 
+clear;
 
 rng(3);
 
 sdk_dir = '/Users/li/data/umich_ford/Code/MATLAB';
 db_path = fullfile(sdk_dir, 'db.xml');
 data_dir = '/Users/li/data/umich_ford/IJRR-Dataset-1';
-% data_dir = '/Users/li/data/umich_ford/IJRR-Dataset-2';
-im_dir = fullfile(data_dir, 'IMAGES/Cam0');
+data_dir = '/Users/li/data/umich_ford/IJRR-Dataset-2';
+
+cam_names = {'Cam0', 'Cam1', 'Cam2'};
+choose_cam = 2;
+
+im_dir = fullfile(data_dir, ['IMAGES/', cam_names{choose_cam}]);
 param_path = fullfile(data_dir, 'PARAM.mat');
 pose_path = fullfile(data_dir, 'Pose-Applanix.log');
+% mtig_path = fullfile(data_dir, 'Pose-Mtig.log');
 stamp_path = fullfile(data_dir, 'Timestamp.log');
 
 addpath(fullfile(sdk_dir, 'create_ijrr_utils'));
@@ -44,24 +61,28 @@ if ~exist('db', 'var'); db = hdl_newloaddb(db_path); end
 if ~exist('lcalib', 'var'); lcalib = hdl_lasergeom(db); end
 if ~exist('ccalib', 'var'); ccalib = load(param_path); end
 if ~exist('gt_poses', 'var'); gt_poses = load_pose_applanix(pose_path); end
+
+% mtig_poses = load_pose_mtig(mtig_path);
+
 if ~exist('im_list', 'var')
     fid_stamp = fopen(stamp_path, 'r');
     im_list = textscan(fid_stamp, '%f %f %f %f', 'HeaderLines', 1);
 end
 
-consec_interv = 0.5;
+consec_interv = 1;
 start = 50;
 im_stamps = im_list{2}(start:consec_interv:end);
 im_indices = im_list{1}(start:consec_interv:end);
 % im_stamps = im_stamps(end - 500:end);
 % im_indices = im_indices(end - 500:end);
 
-cam_poses = loadCameraPoses(im_stamps, gt_poses, lcalib, ccalib.PARAM(1));
+cam_poses = loadCameraPoses(im_stamps, gt_poses, lcalib, ccalib.PARAM(choose_cam));
+% cam_mtig_poses = loadCameraPoses(im_stamps, mtig_poses, lcalib, ccalib.PARAM(choose_cam));
 
-fx = ccalib.PARAM(1).K(1, 1);
-fy = ccalib.PARAM(1).K(2, 2);
-cx = ccalib.PARAM(1).K(1, 3);
-cy = ccalib.PARAM(1).K(2, 3);
+fx = ccalib.PARAM(choose_cam).K(1, 1);
+fy = ccalib.PARAM(choose_cam).K(2, 2);
+cx = ccalib.PARAM(choose_cam).K(1, 3);
+cy = ccalib.PARAM(choose_cam).K(2, 3);
 thresh = 2 / fx;
 im_size = [1232,1616];
 im_roi = [[600, 200], im_size([2, 1]) - [600, 200] * 2];
@@ -79,7 +100,7 @@ time_4pst0 = nan(size(im_stamps));
 time_4pra = nan(size(im_stamps));
 time_3prast0 = nan(size(im_stamps));
 
-min_move = 0.5;
+min_move = 1;
 gt_move = 0;
 for i = 1:numel(im_stamps)
     fprintf('%d / %d\n', i, numel(im_stamps))
@@ -91,12 +112,13 @@ for i = 1:numel(im_stamps)
         offseted_prev = cam_poses(:, :, prev_i);
         offseted_prev(1:3, 4) = 0;
         gt_rel = offseted_prev \ offseted;
+        gt_rel = relativePose(cam_poses(:, :, i), cam_poses(:, :, prev_i));
         gt_nt = normc(gt_rel(1:3, 4));
         gt_move = norm(gt_rel(1:3, 4));
         gt_E = skew(gt_nt) * gt_rel(1:3, 1:3);
         gt_E = gt_E / norm(gt_E(:));
         disp([gt_rel(1:3, 1:3), normc(gt_rel(1:3, 4)), gt_rel(1:3, 4), gt_E]);
-                    
+%         mtig_rel = relativePose(cam_mtig_poses(:, :, i), cam_mtig_poses(:, :, prev_i))';
     end
     if i == 1 || gt_move > min_move
         file_name = sprintf('image%04d.ppm', im_indices(i));
@@ -195,7 +217,7 @@ for i = 1:numel(im_stamps)
         end
         [prev_points, prev_feat, prev_im] = deal(curr_points, curr_feat, curr_im);
         prev_i = i;
-%         if sum(~isnan(t_err_5p)) > 50; return; end
+%         if sum(~isnan(t_err_5p)) > 100; return; end
     end
 end
 

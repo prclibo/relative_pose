@@ -1,10 +1,32 @@
+
+% 2014-06-26-08-53-56 stereo/centre
+%     3.6612    2.5287    2.6890    2.2571
+%     5.6134    3.5850    3.9311    2.8528
+%    10.1101    5.6134    6.8494    3.6692
+% 2014-06-26-08-53-56 mono_rear
+%     2.7761    2.5370    2.5580    2.4581
+%     4.5333    3.9511    4.1398    3.3545
+%     8.0464    6.1324    6.9541    4.9702
+% 2014-06-26-08-53-56 mono_left
+%     2.6026    2.5909    2.4817    2.5808
+%     3.4639    3.3637    3.4120    3.2748
+%     5.1059    4.6155    5.0003    4.5186
+% 2014-05-14-13-46-12 stereo/centre
+%     4.5433    3.2563    2.4160    2.2239
+%     9.3414    6.4148    3.3637    2.7615
+%    25.9600   20.9465    5.5377    3.6036
+% 2014-05-14-13-46-12 mono_left
+%     2.8778    2.8252    2.6762    2.6858
+%     4.0236    3.8503    3.5413    3.3642
+%     6.9382    6.5854    5.1485    4.5052
+
 clear, clc
 
 rng(3);
 
 sdk_dir = '~/workspace/robotcar-dataset-sdk';
-% data_dir = '~/data/robotcar/2014-05-14-13-46-12';
-data_dir = '~/data/robotcar/2014-06-26-08-53-56';
+data_dir = '~/data/robotcar/2014-05-14-13-46-12';
+% data_dir = '~/data/robotcar/2014-06-26-08-53-56';
 model_dir = fullfile(sdk_dir, 'models');
 extrinsic_dir = fullfile(sdk_dir, 'extrinsics');
 ins_file = fullfile(data_dir, 'gps/ins.csv');
@@ -14,12 +36,13 @@ addpath(fullfile(sdk_dir, 'matlab'));
 addpath(fullfile(fileparts(mfilename('fullpath')), '/../../build/matlab/'));
 
 % error('consec = 1 with choice 2 can outperform');
-choice = 2;
+choice = 3;
 if choice == 1
     image_dir = fullfile(data_dir, 'stereo/centre');
     timestamp_file = fullfile(data_dir, 'stereo.timestamps');
     ins_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/ins.txt']));
     cam_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/stereo.txt']));
+    cam_extrs = inv(cam_extrs);
     [fx, fy, cx, cy, G_camera_image, LUT] = ReadCameraModel(image_dir, model_dir);
     cam_ins = ins_extrs \ cam_extrs * G_camera_image;
     lower_clip = 830;
@@ -28,6 +51,16 @@ elseif choice == 2
     timestamp_file = fullfile(data_dir, 'mono_rear.timestamps');
     ins_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/ins.txt']));
     cam_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/mono_rear.txt']));
+    cam_extrs = inv(cam_extrs);
+    [fx, fy, cx, cy, G_camera_image, LUT] = ReadCameraModel(image_dir, model_dir);
+    cam_ins = ins_extrs \ cam_extrs * G_camera_image;
+    lower_clip = 950;
+elseif choice == 3
+    image_dir = fullfile(data_dir, 'mono_left');
+    timestamp_file = fullfile(data_dir, 'mono_left.timestamps');
+    ins_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/ins.txt']));
+    cam_extrs = SE3MatrixFromComponents(dlmread([extrinsic_dir, '/mono_left.txt']));
+    cam_extrs = inv(cam_extrs);
     [fx, fy, cx, cy, G_camera_image, LUT] = ReadCameraModel(image_dir, model_dir);
     cam_ins = ins_extrs \ cam_extrs * G_camera_image;
     lower_clip = 950;
@@ -37,7 +70,7 @@ consec_interv = 1;
 timestamps = load(timestamp_file);
 timestamps = timestamps(1:consec_interv:end, 1)';
 
-thresh = 4 / fx;
+thresh = 2 / fx;
 
 scale = 0.5;
 fx = fx * scale;
@@ -48,7 +81,7 @@ thresh = thresh * scale;
 lower_clip = lower_clip * scale;
 
 % timestamps = timestamps(197:200);
-timestamps = timestamps(50:end - 50);
+timestamps = timestamps(200:end - 200);
 
 ins_poses = InterpolatePoses(ins_file, timestamps, timestamps(1));
 vo_poses = RelativeToAbsolutePoses(vo_file, timestamps, timestamps(1));
@@ -66,7 +99,7 @@ time_4pst0 = nan(size(timestamps));
 time_4pra = nan(size(timestamps));
 time_3prast0 = nan(size(timestamps));
 
-min_move = 2;
+min_move = 1;
 vo_move = 0;
 for i = 1:numel(timestamps)
     fprintf('%6d / %d\n', i, numel(timestamps));
@@ -150,17 +183,17 @@ for i = 1:numel(timestamps)
                 end
             end
             
-            disp([sum(mask_4pst0), sum(mask_5p)]);
-            disp([pose1.R, normc(pose1.t)]);
-            disp([pose2.R, normc(pose2.t)]);
-            disp([pose3.R, normc(pose3.t)]);
-            disp([pose4.R, normc(pose4.t)]);
+%             disp([sum(mask_4pst0), sum(mask_5p)]);
+%             disp([pose1.R, normc(pose1.t)]);
+%             disp([pose2.R, normc(pose2.t)]);
+%             disp([pose3.R, normc(pose3.t)]);
+%             disp([pose4.R, normc(pose4.t)]);
             disp([vo_rel(1:3, 1:3), normc(vo_rel(1:3, 4)), vo_rel(1:3, 4)]);
             disp('---');
         end
         [prev_points, prev_feat, prev_im] = deal(curr_points, curr_feat, curr_im);
         prev_i = i;
-        if i > 200; return; end
+%         if i > 200; return; end
     end 
 end
 fprintf('\n');

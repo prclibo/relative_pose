@@ -1,5 +1,5 @@
-part = 'rot';
-% part = 'transl';
+% part = 'rot';
+part = 'transl';
 
 errs_pc5p = eval(sprintf('%s_errs_pc5p', part));
 errs_pc3prast0 = eval(sprintf('%s_errs_pc3prast0', part));
@@ -21,6 +21,18 @@ for level = 1:numel(nstd_ray)
     
     errs = mean(errs_pc3prast0(:, level, :, :), 1);
     errs = reshape(errs, [K2, K3]);
+    
+    [r, c] = find(isnan(errs));
+    for i = 1:numel(r)
+        bottom = min(r + 1, size(errs, 1));
+        top = max(r - 1, 1);
+        left = max(c - 1, 1);
+        right = min(c + 1, size(errs, 2));
+        nhood = errs(top:bottom, left:right);
+        errs(r, c) = mean(nhood(:), 'omitnan');
+    end
+    
+    errs = imgaussfilt(errs, 0.8);
 %     mesh(errs), hold on
 
     [C, h{level}] = contour(errs, 'levellist', [ref_errs, ref_errs], 'showtext', 'on',...
@@ -33,7 +45,7 @@ end
 % https://undocumentedmatlab.com/blog/customizing-contour-plots
 drawnow();
 
-xticklabels(arrayfun(@(x) sprintf('%.2f', x), rad2deg(nstd_angle), 'uniformoutput', false));
+xticklabels(arrayfun(@(x) sprintf('%.2f', x), rad2deg(nstd_angle(2:2:end)), 'uniformoutput', false));
 xlabel('angle turb (deg)')
 yticklabels(arrayfun(@(x) sprintf('%.0f', x), nstd_transl * 100, 'uniformoutput', false))
 ylabel('transl turb (%)')

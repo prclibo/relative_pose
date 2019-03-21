@@ -1,3 +1,30 @@
+
+% rgbd_dataset_freiburg2_pioneer_360
+%     3.7719    4.1388
+%     6.4778    6.6164
+%    12.1974   14.0744
+%     3.7719    4.1388
+%     6.4778    6.6164
+%    11.5550   14.0744
+% rgbd_dataset_freiburg2_pioneer_3
+%     2.6967    3.0798
+%     5.9472    6.2289
+%    13.2019   12.3304
+%     2.5726    3.0798
+%     5.9472    6.2289
+%    12.4243   12.3304
+% rgbd_dataset_freiburg2_pioneer_2
+%     2.8981    4.2581
+%     5.7440    7.7276
+%    15.9652   15.2033
+% rgbd_dataset_freiburg2_pioneer
+%     2.7937    3.8845
+%     6.2233    7.1696
+%    14.8668   15.1747
+%     2.7937    3.8845
+%     6.2233    7.1696
+%    14.8668   15.1747
+
 addpath('~/workspace/relative_pose/build/matlab');
 addpath('~/workspace/relative_pose/build/Matlab');
 addpath('../utils');
@@ -5,9 +32,9 @@ addpath('../utils');
 clear, clc
 
 data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam';
-data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam2';
-data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam3';
-data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_360';
+% data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam2';
+% data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_slam3';
+% data_dir = '~/data/tum/rgbd_dataset_freiburg2_pioneer_360';
 gt_path = fullfile(data_dir, 'groundtruth.txt');
 rgb_list_path = fullfile(data_dir, 'rgb.txt');
 rgb_dir = fullfile(data_dir, 'rgb');
@@ -89,6 +116,17 @@ for i = 1:numel(rgb_list{1})
                     disp([pose2.R, normc(pose2.t)]);
                 end
             end
+            [E_2pot, mask_2pot] = estimateRelativePose_PC2POT(...
+                    rays1, rays2, 0.999, thresh);
+                if ~isempty(E_2pot)
+                    pose2ot = recoverRelativePose(E_2pot, 'rays1', rays1(logical(mask_2pot), :), 'rays2', rays2(logical(mask_2pot), :), 'zeroscrewtransl', true);
+                    if isfield(pose2ot, 'R')
+                        if sum(mask_2pot) > sum(mask_4pst0)
+                            t_err_4pst0(i) = acosd(dot(gt_nt, pose2ot.t));
+                            rel_4pst0{i} = [pose2ot.R, pose2ot.t * gt_move; 0, 0, 0, 1];
+                        end
+                    end
+                end
             disp([sum(mask_4pst0), sum(mask_5p)]);
             disp([gt_rel(1:3, 1:3), normc(gt_rel(1:3, 4)), gt_rel(1:3, 4)]);
             disp('---');
