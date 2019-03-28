@@ -1,6 +1,48 @@
 clear;
 rng(3);
 
+% 5.1 & 7.9 \\ 
+% 10.3 & 14.3 \\ 
+% 15.7 & 22.8 \\ 
+% 
+% 3.4 & 7.2 \\ 
+% 9.3 & 12.0 \\ 
+% 16.3 & 16.9 \\ 
+% 
+% 4.9 & 5.3 \\ 
+% 8.5 & 9.9 \\ 
+% 16.1 & 23.5 \\ 
+% 
+% 6.3 & 6.1 \\ 
+% 10.7 & 10.7 \\ 
+% 17.9 & 17.7 \\ 
+% 
+% 7.3 & 9.0 \\ 
+% 12.2 & 17.4 \\ 
+% 21.4 & 28.0 \\ 
+% 
+% 
+% 8.7 & 9.2 \\ 
+% 14.3 & 21.5 \\ 
+% 22.9 & 39.3 \\ 
+% 
+% 8.1 & 8.5 \\ 
+% 13.3 & 15.4 \\ 
+% 22.4 & 24.8 \\ 
+% 
+% 5.0 & 6.4 \\ 
+% 8.6 & 11.7 \\ 
+% 13.7 & 21.5 \\ 
+% 
+% 7.7 & 13.3 \\ 
+% 13.4 & 19.1 \\ 
+% 30.8 & 26.5 \\ 
+% 
+% 9.4 & 12.9 \\ 
+% 17.1 & 29.8 \\ 
+% 34.7 & 46.9 \\ 
+
+
 % anto-s1
 %     6.7267    7.3874
 %    11.2065   13.2670
@@ -22,32 +64,38 @@ rng(3);
 %    12.6020   16.4660
 %    25.2733   53.2055
 
-
+clear;rng(3);
 
 addpath('~/data/umich_ford/Code/MATLAB/create_ijrr_utils/')
 addpath(fullfile(fileparts(mfilename('fullpath')), '/../../build/matlab/'));
 addpath(fullfile(fileparts(mfilename('fullpath')), '/../utils'));
 
-choose = 5;
-if choose == 1
+choose_data = 5;
+choose_cam = 'side';
+if choose_data == 1
     data_name = 'anto-s1';
-    sensor_label = 'RGBD_4';
+    if strcmp(choose_cam, 'front'); sensor_label = 'RGBD_4';
+    elseif strcmp(choose_cam, 'side'); sensor_label = 'RGBD_1'; end
     room_names = {'bathroom1_labelled', 'bedroom1_labelled', 'corridor1_labelled', 'kitchen1_labelled', 'masterroom1_labelled', 'bathroom2_labelled', 'bedroom2_labelled', 'dressingroom1_labelled', 'livingroom1_labelled'};
-elseif choose == 2
+elseif choose_data == 2
     data_name = 'alma-s1';
-    sensor_label = 'RGBD_4';
+    if strcmp(choose_cam, 'front'); sensor_label = 'RGBD_4'; 
+    elseif strcmp(choose_cam, 'side'); sensor_label = 'RGBD_1'; end
     room_names = {'bathroom1_labelled', 'bedroom1_labelled', 'kitchen1_labelled', 'livingroom1_labelled', 'masterroom1_labelled' };
-elseif choose == 3
+elseif choose_data == 3
     data_name = 'pare-s1';
-    sensor_label = 'RGBD_4';
+    if strcmp(choose_cam, 'front'); sensor_label = 'RGBD_4'; 
+    elseif strcmp(choose_cam, 'side'); sensor_label = 'RGBD_1'; end
     room_names = {'bathroom1_labelled', 'bedroom1_labelled', 'corridor1_labelled', 'kitchen1_labelled', 'livingroom2_labelled', 'bathroom2_labelled', 'bedroom2_labelled', 'hall1_labelled', 'livingroom1_labelled', 'masterroom1_labelled' };
-elseif choose == 4
+elseif choose_data == 4
     data_name = 'rx2-s1';
-    sensor_label = 'RGBD_4';
+    if strcmp(choose_cam, 'front'); sensor_label = 'RGBD_4'; 
+    elseif strcmp(choose_cam, 'side'); sensor_label = 'RGBD_1'; end
     room_names = {'bathroom1_labelled', 'bedroom1_labelled', 'kitchen1_labelled', 'livingroom1_labelled' };
-elseif choose == 5
+elseif choose_data == 5
     data_name = 'sarmis-s1';
-    sensor_label = 'RGBD_1';
+    if strcmp(choose_cam, 'front'); sensor_label = 'RGBD_1'; 
+    elseif strcmp(choose_cam, 'side'); sensor_label = 'RGBD_2'; end
     room_names = {'bathroom2_1_labelled', 'bedroom1_1_labelled', 'bedroom2_1_labelled', 'bedroom3_1_labelled', 'corridor1_1_labelled', 'kitchen1_1_labelled', 'livingroom1_1_labelled', 'bathroom2_2_labelled', 'bedroom1_2_labelled', 'bedroom2_2_labelled', 'bedroom3_2_labelled', 'corridor1_2_labelled', 'kitchen1_2_labelled', 'livingroom1_2_labelled'};
     
 end
@@ -55,10 +103,11 @@ data_dir = fullfile('~/data/rh', data_name);
 
 cx = 157.3245865;
 cy = 120.0802295;
-fx = 572.882768;
-fy = 542.739980;
+fx = 572.882768/2;
+fy = 542.739980/2;
 
 cam_extrs = [0, 0, 1, 0; -1, 0, 0, 0; 0, -1, 0, 0; 0, 0, 0, 1];
+% cam_extrs = [0, -1, 0, 0; 1, 0, 0, 0; 0, 0, 1, 0;0, 0, 0, 1];
 
 thresh = 1 / fx;
 
@@ -72,6 +121,7 @@ for room_i = 1:numel(room_names)
     im_dir = fullfile(data_dir, room_names{room_i});
     label_path = [im_dir, '.txt'];
     [gt_poses, im_ids] = loadRHLabels(label_path, sensor_label);
+    [fr_poses, fr_ids] = loadRHLabels(label_path, 'RGBD_4');
     curr_t_err_5p = nan(size(im_ids));
     curr_t_err_4pst0 = nan(size(im_ids));
     gt_move = 0;
@@ -131,10 +181,12 @@ for room_i = 1:numel(room_names)
                         end
                     end
                     disp([sum(mask_4pst0), sum(mask_5p)]);
-                    disp([gt_rel(1:3, 1:3), normc(gt_rel(1:3, 4)), gt_rel(1:3, 4), gt_E]);
+                    disp([gt_poses{prev_i}, gt_poses{i}]);
+                    disp([gt_rel(1:3, 1:3), normc(gt_rel(1:3, 4)), gt_rel(1:3, 4), gt_poses{i}(1:3, :)]);
                     
                     if isfield(pose1, 'R'); disp([pose1.R, normc(pose1.t)]); end
                     if isfield(pose2, 'R'); disp([pose2.R, normc(pose2.t)]); end
+                    disp('---');
                 end
             end
             [prev_points, prev_feat, prev_im] = deal(curr_points, curr_feat, curr_im);
@@ -143,8 +195,7 @@ for room_i = 1:numel(room_names)
     end
     t_err_5p = [t_err_5p; curr_t_err_5p];
     t_err_4pst0 = [t_err_4pst0; curr_t_err_4pst0];
-
-    
 end
 
+fprintf('%.1f & %.1f \\\\ \n', quantile([t_err_4pst0(:), t_err_5p(:)], [0.25, 0.5, 0.75])')
                 

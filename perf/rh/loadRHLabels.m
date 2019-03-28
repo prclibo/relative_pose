@@ -9,14 +9,14 @@ sensor_indices = find(strcmpi(label_data{2}, sensor_label));
 im_ids = label_data{1}(sensor_indices);
 
 
-[~, si] = sort(label_data{9});
-sl = label_data{2}(si);
-x = label_data{3}(si);
-y = label_data{4}(si);
-z = label_data{5}(si);
-yaws = label_data{6}(si);
-pitchs = label_data{7}(si);
-rolls = label_data{8}(si);
+% [~, si] = sort(label_data{9});
+% sl = label_data{2}(si);
+% x = label_data{3}(si);
+% y = label_data{4}(si);
+% z = label_data{5}(si);
+% yaws = label_data{6}(si);
+% pitchs = label_data{7}(si);
+% rolls = label_data{8}(si);
 
 % jj = sensor_indices(1);
 % yaw = yaws(jj);pitch = pitchs(jj); roll = rolls(jj);
