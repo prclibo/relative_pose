@@ -70,7 +70,7 @@ addpath('~/data/umich_ford/Code/MATLAB/create_ijrr_utils/')
 addpath(fullfile(fileparts(mfilename('fullpath')), '/../../build/matlab/'));
 addpath(fullfile(fileparts(mfilename('fullpath')), '/../utils'));
 
-choose_data = 5;
+choose_data = 1;
 choose_cam = 'side';
 if choose_data == 1
     data_name = 'anto-s1';
