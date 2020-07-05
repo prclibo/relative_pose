@@ -59,24 +59,24 @@
 
 clear;
 rng(3);
-rot_type = 'odo';
+rot_type = 'imu';
 
 addpath('~/data/umich_ford/Code/MATLAB/create_ijrr_utils/')
 addpath(fullfile(fileparts(mfilename('fullpath')), '/../../build/matlab/'));
 addpath(fullfile(fileparts(mfilename('fullpath')), '/../utils'));
 
 data_name = 'Bicocca_2009-02-26a';
-data_name = 'Bicocca_2009-02-25b';
-data_name = 'Bicocca_2009-02-26b';
-data_name = 'Bicocca_2009-02-25a';
+% data_name = 'Bicocca_2009-02-25b';
+% data_name = 'Bicocca_2009-02-26b';
+% data_name = 'Bicocca_2009-02-25a';
 cam_name = 'FRONTAL';
-cam_name = 'SVS_L';
+% cam_name = 'SVS_L';
 
 data_dir = fullfile('~/data/rawseeds', data_name);
 
 im_dir = fullfile(data_dir, 'FRONTAL');
 gt_path = fullfile(data_dir, sprintf('%s-GROUNDTRUTH.csv', data_name));
-% gt_path = fullfile(data_dir, sprintf('%s-GT-extended.csv', data_name));
+gt_path = fullfile(data_dir, sprintf('%s-GT-extended.csv', data_name));
 imu_path = fullfile(data_dir, sprintf('%s-IMU_STRETCHED.csv', data_name));
 odo_path = fullfile(data_dir, sprintf('%s-ODOMETRY_XYT.csv', data_name));
 im_list_path = fullfile(data_dir, sprintf('%s-LISTS/%s-%s.lst', data_name, data_name, cam_name));
@@ -152,11 +152,12 @@ time_3prast0 = nan(size(im_stamps));
 
 min_move = 0.1;
 gt_move = 0;
-for i = 1:numel(im_stamps)
+start_i = 1;
+for i = start_i:numel(im_stamps)
     fprintf('%d / %d\n', i, numel(im_stamps))
     rng(3);
 %     clc
-    if i > 1
+    if i > start_i
         gt_rel = relativePose(gt_poses{i}, gt_poses{prev_i});
         gt_rel = cam_extrs \ gt_rel * cam_extrs;
         if strcmp(rot_type, 'odo')
@@ -175,14 +176,20 @@ for i = 1:numel(im_stamps)
         gt_E = skew(gt_nt) * gt_rel(1:3, 1:3);
         gt_E = gt_E / norm(gt_E(:));
     end
-    if i == 1 || gt_move > min_move
+    curr_path = fullfile(im_dir, im_list{i});
+
+    if exist(curr_path, 'file') && (i == start_i || gt_move > min_move)
+%         if i > start_i
+%             rel_4pra{i} = gt_rel;
+%         end
+
         curr_path = fullfile(im_dir, im_list{i});
         curr_im = rgb2gray(imread(curr_path));
         curr_im = histeq(curr_im, 255);
         curr_im = undistortImage(curr_im, cam_param);
         curr_points = detectSURFFeatures(curr_im, 'metricthreshold', 300);
         [curr_feat, curr_points] = extractFeatures(curr_im, curr_points);
-        if i > 1% && gt_move > min_move
+        if i > start_i % && gt_move > min_move
             pairs = matchFeatures(curr_feat, prev_feat,...
                 'method', 'Exhaustive', 'maxratio', 0.6);
             if size(pairs, 1) > 50
@@ -202,6 +209,8 @@ for i = 1:numel(im_stamps)
                         t_err_5p(i) = acosd(dot(gt_nt, pose1.t));
                         rel_5p{i} = [pose1.R, pose1.t * gt_move; 0, 0, 0, 1];
                     end
+                else
+                    rel_5p{i} = gt_rel;
                 end
                 tic, [E_4pst0, mask_4pst0] = estimateRelativePose_PC4PST0_NullE(...
                     rays1, rays2, 0.999, thresh);
@@ -212,6 +221,8 @@ for i = 1:numel(im_stamps)
                         t_err_4pst0(i) = acosd(dot(gt_nt, pose2.t));
                         rel_4pst0{i} = [pose2.R, pose2.t * gt_move; 0, 0, 0, 1];
                     end
+                else
+                    rel_4pst0{i} = gt_rel;
                 end
                 
                 r4vec = vrrotmat2vec(rot_rel(1:3, 1:3));
@@ -225,6 +236,8 @@ for i = 1:numel(im_stamps)
                         t_err_3prast0(i) = acosd(dot(gt_nt, pose3.t));
                         rel_3prast0{i} = [pose3.R, pose3.t * gt_move; 0, 0, 0, 1];
                     end
+                else
+                    rel_3prast0{i} = gt_rel;
                 end
                 
                 tic, [E_4pra, mask_4pra] = estimateRelativePose_PC4PRA(...
@@ -236,6 +249,8 @@ for i = 1:numel(im_stamps)
                         t_err_4pra(i) = acosd(dot(gt_nt, pose4.t));
                         rel_4pra{i} = [pose4.R, pose4.t * gt_move; 0, 0, 0, 1];
                     end
+                else
+                    rel_4pra{i} = gt_rel;
                 end
                 
                 [E_2pot, mask_2pot] = estimateRelativePose_PC2POT(...
