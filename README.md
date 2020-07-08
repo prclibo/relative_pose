@@ -33,3 +33,13 @@ This repository is the source code for the following paper:
 * `include` C++ API.
 * `matlab` Matlab API.
 * `perf` Source code for the experiment section in the paper.
+
+## Compilation
+
+The default `CMakeLists.txt` requires Matlab to be installed to compile the Matlab API.
+
+```bash
+mkdir build && cd build
+PATH=/usr/local/MATLAB/<version>/bin/:$PATH cmake ..
+make
+```
