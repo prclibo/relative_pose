@@ -61,7 +61,7 @@ end
 for i = 1:9 - N
     for r = 1:3
         for c = 1:3
-            cmd = sprintf('E_%d_%d_%d = %.32f;', i, r, c, Evec(r, c, i));
+            cmd = sprintf('NE%d%d%d = %.32f;', i, r, c, Evec(r, c, i));
             eval(cmd);
         end
     end

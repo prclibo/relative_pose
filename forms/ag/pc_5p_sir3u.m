@@ -1,5 +1,7 @@
 clear, clc
 
+addpath(fullfile('.', 'combinator_update/combinator/'));
+
 syms u1 u2 u3 s
 u = [u1; u2; u3];
 unknown_vars = symvar([u; s]);
@@ -25,8 +27,10 @@ eqs(end) = transpose(u) * u + s^2 - 1;
 
 %% Verification
 cfg = gbs_InitConfig();
+% cfg.InstanceGenerator = @gbs_RandomInstanceZpFixed;
 
-all_vars = [symvar(eqs), sym('[Q, QQ, R, t]')];
+
+all_vars = [symvar(eqs), str2sym('[Q, QQ, R, t]')];
 pc_sample_data_zp(cfg.prime, 5, false, all_vars);
 
 F_instance = subs(F, [q(:); qq(:)], eval([q(:); qq(:)]));
@@ -69,14 +73,3 @@ kngroups = [];
 sname = mfilename();
 [res, export] = gbs_CreateCode(sname, eqs, known, unknown, kngroups, cfg);
 
-%% Post verification
-setpaths;
-
-all_vars = [symvar(eqs), sym('[Q, QQ]')];
-pc_sample_data(5, false, all_vars);
-
-input_str = [sprintf('%s, ', known{1:end - 1}), known{end}];
-output_str = [sprintf('%s_, ', unknown{1:end - 1}), sprintf('%s_, ', unknown{end})];
-
-cmd = sprintf('[%s] = solver_%s(%s)', output_str, sname, input_str);
-eval(cmd);

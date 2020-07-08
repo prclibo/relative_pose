@@ -22,7 +22,6 @@ for index = 1:4
     F(1:2, 1:2) = simpleFijk(q, qq, R, i, j, k);
     F(3, :) = [-transpose(u) * q(:, i), transpose(u) * qq(:, i)];
     temp{index} = F;
-%     eqs(index) = det(F([1, 2], :));
     eqs(index * 3 - 2) = det(F([1, 2], :));
     eqs(index * 3 - 1) = det(F([2, 3], :));
     eqs(index * 3) = det(F([3, 1], :));
@@ -30,27 +29,26 @@ end
 eqs(end) = transpose(u) * u + s^2 - 1;
 
 %% Verification
-all_vars = [symvar(eqs), str2sym_('[Q, QQ]')];
-pc_sample_data(4, true, all_vars);
+cfg = gbs_InitConfig();
 
-for i = 1:4
-    vars = symvar(temp{i});
-    val = eval(subs(temp{i}, vars, vars));
-    
-    lambda = norm(Q(:, i));
-    mu = norm(QQ(:, i));
-    
-    disp([val, val(:, 1) ./ val(:, 2)]);
-    disp(val * [lambda; mu]);
-end
-    
+all_vars = [symvar(eqs), str2sym('[Q, QQ, R, t]')];
+pc_sample_data_zp(cfg.prime, 4, false, all_vars);
 
-eqs_ = inf(size(eqs));
-for i = 1:size(eqs, 1)
-    vars = symvar(eqs(i));
-    eqs_(i) = eval(subs(eqs(i), vars, vars));
+cfg.eqinstance = sym(inf(size(eqs)));
+for r = 1:numel(eqs)
+    fprintf('Instantiating Eq %d\n', r);
+    eq_instance = subs(eqs(r), [q(:); qq(:)], eval([q(:); qq(:)]));
+    cfg.eqinstance(r) = eq_instance;
 end
-fprintf('eqs evaluated to be less than %e\n', max(eqs_));
+
+for i = 1:numel(cfg.eqinstance)
+    eq_instance = cfg.eqinstance(i);
+    [coeff, term] = coeffs(eq_instance, unknown_vars);
+    coeff = mod(coeff, cfg.prime);
+    eq_instance = sum(coeff .* term);
+    cfg.eqinstance(i) = eq_instance;
+
+end
 
 %% Solve
 
@@ -67,12 +65,5 @@ end
 kngroups = [];
 
 sname = mfilename();
-[res, export] = gbs_CreateCode(sname, eqs, known, unknown, kngroups);
+[res, export] = gbs_CreateCode(sname, eqs, known, unknown, kngroups, cfg);
 
-%% Post verification
-
-input_str = [sprintf('%s, ', known{1:end - 1}), known{end}];
-output_str = [sprintf('%s_, ', unknown{1:end - 1}), sprintf('%s_, ', unknown{end})];
-cmd = sprintf('[%s] = solver_%s(%s)', output_str, sname, input_str);
-eval(cmd);
-    

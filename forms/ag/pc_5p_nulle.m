@@ -1,8 +1,8 @@
 clear, clc
-E1 = sym('E_1_%d_%d', [3 ,3]);
-E2 = sym('E_2_%d_%d', [3 ,3]);
-E3 = sym('E_3_%d_%d', [3 ,3]);
-E4 = sym('E_4_%d_%d', [3 ,3]);
+E1 = sym('NE1%d%d', [3 ,3]);
+E2 = sym('NE2%d%d', [3 ,3]);
+E3 = sym('NE3%d%d', [3 ,3]);
+E4 = sym('NE4%d%d', [3 ,3]);
 
 syms w1 w2 w3
 E = w1*E1 + w2*E2 + w3*E3 + E4;
@@ -10,7 +10,7 @@ E = w1*E1 + w2*E2 + w3*E3 + E4;
 eqs = sym(zeros(10, 1));
 eqs(1) = det(E);
 
-Et = E'; % transpose(E);
+Et = transpose(E);
 te = 2*(E*Et)*E - trace(E*Et)*E;
 eqs(2:10) = te(:);
 
@@ -41,7 +41,9 @@ end
 
 kngroups = [];
 sname = mfilename();
-[res, export] = gbs_CreateCode(sname, eqs, known, unknown, kngroups);
+cfg = gbs_InitConfig();
+cfg.InstanceGenerator = @gbs_RandomInstanceZpFixed;
+[res, export] = gbs_CreateCode(sname, eqs, known, unknown, kngroups, cfg);
 
 %% Post verification
 setpaths;

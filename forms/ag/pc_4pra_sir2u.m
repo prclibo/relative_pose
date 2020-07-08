@@ -16,10 +16,10 @@ qq = transpose(sym('qq%d%d', [4, 3]));
 % R = eval(R);
 
 F = {};
-F{1} = Fijk(q, qq, R, 2, 3, 4);
-F{2} = Fijk(q, qq, R, 3, 4, 1);
-F{3} = Fijk(q, qq, R, 4, 1, 2);
-F{4} = Fijk(q, qq, R, 1, 2, 3);
+F{1} = simpleFijk(q, qq, R, 2, 3, 4);
+F{2} = simpleFijk(q, qq, R, 3, 4, 1);
+F{3} = simpleFijk(q, qq, R, 4, 1, 2);
+F{4} = simpleFijk(q, qq, R, 1, 2, 3);
 
 eqs = sym(zeros(5, 1));
 eqs(1) = det(F{1});
@@ -31,19 +31,17 @@ eqs(5) = transpose(u) * u + s^2 - 1;
 %% Verification
 cfg = gbs_InitConfig();
 
-all_vars = [symvar(eqs), sym('[Q, QQ, R, t]')];
+all_vars = [symvar(eqs), str2sym('[Q, QQ, R, t]')];
 pc_sample_data_zp(cfg.prime, 4, false, all_vars);
 
 eqs_ = sym(inf(4, 1));
 cfg.eqinstance = sym(inf(size(eqs)));
-for r = 1:4
+for r = 1:5
     fprintf('Instantiating Eq %d\n', r);
-    F_instance = subs(F{r}, [q(:); qq(:)], eval([q(:); qq(:)]));
-    eq_instance = det(F_instance);
+    eq_instance = subs(eqs(r), [q(:); qq(:); sym('s')], eval([q(:); qq(:); s]));
     eqs_(r) = mod(subs(eq_instance, unknown_vars, eval(unknown_vars)), cfg.prime);
     cfg.eqinstance(r) = eq_instance;
 end
-cfg.eqinstance(end) = eqs(end);
 
 for i = 1:numel(cfg.eqinstance)
     eq_instance = cfg.eqinstance(i);
@@ -56,7 +54,7 @@ end
 
 %% Solve
 
-unknown_vars = sym('[u1, u2, u3]');
+unknown_vars = str2sym('[u1, u2, u3]');
 known_vars = setdiff(symvar(eqs), unknown_vars);
 known = {};
 for var = known_vars
@@ -70,7 +68,7 @@ end
 kngroups = [];
 
 sname = mfilename();
-[res, export] = gbs_CreateCode(sname, eqs, known, unknown, kngroups);
+[res, export] = gbs_CreateCode(sname, eqs, known, unknown, kngroups, cfg);
 
 %% Post verification
 setpaths;
