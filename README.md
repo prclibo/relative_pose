@@ -29,7 +29,7 @@ This repository is the source code for the following paper:
 
 ## Contents
 
-* `form` Source code to derive different solver formulation of compared in Table 3 in the paper. [Automatic Generator](https://github.com/PavelTrutman/Automatic-Generator) and [Generator for Automatic Polynomial Solvers](https://github.com/prclibo/gaps) are required to run these code.
+* `form` Source code to derive different solver formulations compared in Table 3 in the paper. [Automatic Generator](https://github.com/PavelTrutman/Automatic-Generator) and [Generator for Automatic Polynomial Solvers](https://github.com/prclibo/gaps) are required to run these code.
 * `include` C++ API.
 * `matlab` Matlab API.
 * `perf` Source code for the experiment section in the paper.
