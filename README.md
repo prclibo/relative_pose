@@ -1,4 +1,6 @@
-# A Collection of Algorithms for Relative Pose Estimation of a Calibrated Camera
+# Relative Pose Estimation of Calibrated Cameras with Known SE(3) Invariants
+
+> ## A Collection of Algorithms for Relative Pose Estimation of a Calibrated Camera
 
 [![BSD-3-Clause](https://img.shields.io/github/license/prclibo/relative_pose)](https://github.com/prclibo/relative_pose/blob/master/LICENSE)
 [![ECCV 2020](https://img.shields.io/badge/ECCV-2020-%231b75bc)]()
